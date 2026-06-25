@@ -1,0 +1,220 @@
+import { 
+  db, 
+  collection, 
+  doc, 
+  getDocs, 
+  setDoc, 
+  deleteDoc, 
+  onSnapshot,
+  writeBatch
+} from "./firebase";
+import { 
+  Pelanggan, 
+  TanggalPembayaran, 
+  BiayaTarif, 
+  Transaksi,
+  INITIAL_PELANGGAN,
+  INITIAL_TANGGAL_PEMBAYARAN,
+  INITIAL_BIAYA_TARIF,
+  INITIAL_TRANSAKSI
+} from "../types";
+
+// Setup collections refs
+const pelangganCol = collection(db, "pelanggan");
+const tanggalCol = collection(db, "tanggal_pembayaran");
+const biayaCol = collection(db, "biaya_tarif");
+const transaksiCol = collection(db, "transaksi");
+
+// Seeding function to initialize Firestore if it has absolutely no data
+export const seedInitialDataIfEmpty = async () => {
+  try {
+    const pSnap = await getDocs(pelangganCol);
+    if (pSnap.empty) {
+      console.log("Seeding initial data into Firestore...");
+      
+      const batch = writeBatch(db);
+      
+      // Seed pelanggan
+      INITIAL_PELANGGAN.forEach((p) => {
+        const d = doc(db, "pelanggan", p.id);
+        batch.set(d, p);
+      });
+
+      // Seed tanggal
+      INITIAL_TANGGAL_PEMBAYARAN.forEach((t) => {
+        const d = doc(db, "tanggal_pembayaran", t.id);
+        batch.set(d, t);
+      });
+
+      // Seed biaya
+      INITIAL_BIAYA_TARIF.forEach((b) => {
+        const d = doc(db, "biaya_tarif", b.id);
+        batch.set(d, b);
+      });
+
+      // Seed transaksi
+      INITIAL_TRANSAKSI.forEach((tx) => {
+        const d = doc(db, "transaksi", tx.id);
+        batch.set(d, tx);
+      });
+
+      await batch.commit();
+      console.log("Seeding completed successfully!");
+    }
+  } catch (error) {
+    console.error("Error seeding initial data: ", error);
+  }
+};
+
+// Real-time subscriptions
+export const subscribePelanggan = (onUpdate: (data: Pelanggan[]) => void) => {
+  return onSnapshot(pelangganCol, (snapshot) => {
+    const list: Pelanggan[] = [];
+    snapshot.forEach((doc) => {
+      list.push(doc.data() as Pelanggan);
+    });
+    // Sort or preserve order
+    onUpdate(list);
+  }, (err) => {
+    console.error("Error fetching pelanggan snapshot: ", err);
+  });
+};
+
+export const subscribeTanggal = (onUpdate: (data: TanggalPembayaran[]) => void) => {
+  return onSnapshot(tanggalCol, (snapshot) => {
+    const list: TanggalPembayaran[] = [];
+    snapshot.forEach((doc) => {
+      list.push(doc.data() as TanggalPembayaran);
+    });
+    onUpdate(list);
+  }, (err) => {
+    console.error("Error fetching tanggal snapshot: ", err);
+  });
+};
+
+export const subscribeBiaya = (onUpdate: (data: BiayaTarif[]) => void) => {
+  return onSnapshot(biayaCol, (snapshot) => {
+    const list: BiayaTarif[] = [];
+    snapshot.forEach((doc) => {
+      list.push(doc.data() as BiayaTarif);
+    });
+    onUpdate(list);
+  }, (err) => {
+    console.error("Error fetching biaya snapshot: ", err);
+  });
+};
+
+export const subscribeTransaksi = (onUpdate: (data: Transaksi[]) => void) => {
+  return onSnapshot(transaksiCol, (snapshot) => {
+    const list: Transaksi[] = [];
+    snapshot.forEach((doc) => {
+      list.push(doc.data() as Transaksi);
+    });
+    // Sort transactions by date descending or ID descending
+    list.sort((a, b) => b.id.localeCompare(a.id));
+    onUpdate(list);
+  }, (err) => {
+    console.error("Error fetching transaksi snapshot: ", err);
+  });
+};
+
+// CRUD single item operations
+export const savePelangganDoc = async (p: Pelanggan) => {
+  const d = doc(db, "pelanggan", p.id);
+  await setDoc(d, p);
+};
+
+export const deletePelangganDoc = async (id: string) => {
+  const d = doc(db, "pelanggan", id);
+  await deleteDoc(d);
+};
+
+export const saveTanggalDoc = async (t: TanggalPembayaran) => {
+  const d = doc(db, "tanggal_pembayaran", t.id);
+  await setDoc(d, t);
+};
+
+export const deleteTanggalDoc = async (id: string) => {
+  const d = doc(db, "tanggal_pembayaran", id);
+  await deleteDoc(d);
+};
+
+export const saveBiayaDoc = async (b: BiayaTarif) => {
+  const d = doc(db, "biaya_tarif", b.id);
+  await setDoc(d, b);
+};
+
+export const deleteBiayaDoc = async (id: string) => {
+  const d = doc(db, "biaya_tarif", id);
+  await deleteDoc(d);
+};
+
+export const saveTransaksiDoc = async (tx: Transaksi) => {
+  const d = doc(db, "transaksi", tx.id);
+  await setDoc(d, tx);
+};
+
+export const deleteTransaksiDoc = async (id: string) => {
+  const d = doc(db, "transaksi", id);
+  await deleteDoc(d);
+};
+
+// Reset database to default
+export const resetToDefaultDocs = async () => {
+  const batch = writeBatch(db);
+
+  // Get current docs to delete
+  const pSnap = await getDocs(pelangganCol);
+  pSnap.forEach((doc) => batch.delete(doc.ref));
+
+  const tSnap = await getDocs(tanggalCol);
+  tSnap.forEach((doc) => batch.delete(doc.ref));
+
+  const bSnap = await getDocs(biayaCol);
+  bSnap.forEach((doc) => batch.delete(doc.ref));
+
+  const txSnap = await getDocs(transaksiCol);
+  txSnap.forEach((doc) => batch.delete(doc.ref));
+
+  // Write new ones
+  INITIAL_PELANGGAN.forEach((p) => {
+    const d = doc(db, "pelanggan", p.id);
+    batch.set(d, p);
+  });
+
+  INITIAL_TANGGAL_PEMBAYARAN.forEach((t) => {
+    const d = doc(db, "tanggal_pembayaran", t.id);
+    batch.set(d, t);
+  });
+
+  INITIAL_BIAYA_TARIF.forEach((b) => {
+    const d = doc(db, "biaya_tarif", b.id);
+    batch.set(d, b);
+  });
+
+  INITIAL_TRANSAKSI.forEach((tx) => {
+    const d = doc(db, "transaksi", tx.id);
+    batch.set(d, tx);
+  });
+
+  await batch.commit();
+};
+
+// Clear all database content
+export const clearAllDocs = async () => {
+  const batch = writeBatch(db);
+
+  const pSnap = await getDocs(pelangganCol);
+  pSnap.forEach((doc) => batch.delete(doc.ref));
+
+  const tSnap = await getDocs(tanggalCol);
+  tSnap.forEach((doc) => batch.delete(doc.ref));
+
+  const bSnap = await getDocs(biayaCol);
+  bSnap.forEach((doc) => batch.delete(doc.ref));
+
+  const txSnap = await getDocs(transaksiCol);
+  txSnap.forEach((doc) => batch.delete(doc.ref));
+
+  await batch.commit();
+};

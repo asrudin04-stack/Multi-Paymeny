@@ -55,6 +55,24 @@ import TransaksiView from "./components/TransaksiView";
 import LaporanView from "./components/LaporanView";
 import PengaturanAkses from "./components/PengaturanAkses";
 import BackupRestoreView from "./components/BackupRestoreView";
+import {
+  seedInitialDataIfEmpty,
+  subscribePelanggan,
+  subscribeTanggal,
+  subscribeBiaya,
+  subscribeTransaksi,
+  savePelangganDoc,
+  deletePelangganDoc,
+  saveTanggalDoc,
+  deleteTanggalDoc,
+  saveBiayaDoc,
+  deleteBiayaDoc,
+  saveTransaksiDoc,
+  deleteTransaksiDoc,
+  resetToDefaultDocs,
+  clearAllDocs
+} from "./lib/firestoreService";
+
 export default function App() {
   
   // Real-time synchronization state
@@ -131,204 +149,167 @@ export default function App() {
 
   // System State Recovery and Reset triggers
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [loadingFirestore, setLoadingFirestore] = useState(true);
 
-  const handleResetToDefault = () => {
-    setPelangganList(INITIAL_PELANGGAN);
-    localStorage.setItem("pembayaran_pelanggan", JSON.stringify(INITIAL_PELANGGAN));
-
-    setTanggalList(INITIAL_TANGGAL_PEMBAYARAN);
-    localStorage.setItem("pembayaran_tanggal", JSON.stringify(INITIAL_TANGGAL_PEMBAYARAN));
-
-    setBiayaList(INITIAL_BIAYA_TARIF);
-    localStorage.setItem("pembayaran_biaya", JSON.stringify(INITIAL_BIAYA_TARIF));
-
-    setTransaksiList(INITIAL_TRANSAKSI);
-    localStorage.setItem("pembayaran_transaksi", JSON.stringify(INITIAL_TRANSAKSI));
-
-    setIsResetModalOpen(false);
-    setActiveTab("dashboard");
-  };
-
-  const handleClearAllData = () => {
-    setPelangganList([]);
-    localStorage.setItem("pembayaran_pelanggan", JSON.stringify([]));
-
-    setTanggalList([]);
-    localStorage.setItem("pembayaran_tanggal", JSON.stringify([]));
-
-    setBiayaList([]);
-    localStorage.setItem("pembayaran_biaya", JSON.stringify([]));
-
-    setTransaksiList([]);
-    localStorage.setItem("pembayaran_transaksi", JSON.stringify([]));
-
-    setIsResetModalOpen(false);
-    setActiveTab("dashboard");
-  };
-
-  // Load initial dataset from localStorage or fallback to defaults
+  // Load initial dataset from Firestore and setup real-time listeners
   useEffect(() => {
-    const clients = localStorage.getItem("pembayaran_pelanggan");
-    const dates = localStorage.getItem("pembayaran_tanggal");
-    const tariffs = localStorage.getItem("pembayaran_biaya");
-    const txs = localStorage.getItem("pembayaran_transaksi");
+    let unsubPelanggan: () => void;
+    let unsubTanggal: () => void;
+    let unsubBiaya: () => void;
+    let unsubTransaksi: () => void;
 
-    if (clients) setPelangganList(JSON.parse(clients));
-    else {
-      setPelangganList(INITIAL_PELANGGAN);
-      localStorage.setItem("pembayaran_pelanggan", JSON.stringify(INITIAL_PELANGGAN));
-    }
+    const initDb = async () => {
+      try {
+        await seedInitialDataIfEmpty();
+        unsubPelanggan = subscribePelanggan(setPelangganList);
+        unsubTanggal = subscribeTanggal(setTanggalList);
+        unsubBiaya = subscribeBiaya(setBiayaList);
+        unsubTransaksi = subscribeTransaksi(setTransaksiList);
+      } catch (err) {
+        console.error("Failed to initialize Firestore database: ", err);
+      } finally {
+        setLoadingFirestore(false);
+        setIsInitialLoadFinished(true);
+      }
+    };
 
-    if (dates) setTanggalList(JSON.parse(dates));
-    else {
-      setTanggalList(INITIAL_TANGGAL_PEMBAYARAN);
-      localStorage.setItem("pembayaran_tanggal", JSON.stringify(INITIAL_TANGGAL_PEMBAYARAN));
-    }
+    initDb();
 
-    if (tariffs) setBiayaList(JSON.parse(tariffs));
-    else {
-      setBiayaList(INITIAL_BIAYA_TARIF);
-      localStorage.setItem("pembayaran_biaya", JSON.stringify(INITIAL_BIAYA_TARIF));
-    }
-
-    if (txs) setTransaksiList(JSON.parse(txs));
-    else {
-      setTransaksiList(INITIAL_TRANSAKSI);
-      localStorage.setItem("pembayaran_transaksi", JSON.stringify(INITIAL_TRANSAKSI));
-    }
-    setIsInitialLoadFinished(true);
+    return () => {
+      if (unsubPelanggan) unsubPelanggan();
+      if (unsubTanggal) unsubTanggal();
+      if (unsubBiaya) unsubBiaya();
+      if (unsubTransaksi) unsubTransaksi();
+    };
   }, []);
 
+  const handleResetToDefault = async () => {
+    setLoadingFirestore(true);
+    try {
+      await resetToDefaultDocs();
+    } catch (err) {
+      console.error("Failed to reset database: ", err);
+    } finally {
+      setLoadingFirestore(false);
+      setIsResetModalOpen(false);
+      setActiveTab("dashboard");
+    }
+  };
 
+  const handleClearAllData = async () => {
+    setLoadingFirestore(true);
+    try {
+      await clearAllDocs();
+    } catch (err) {
+      console.error("Failed to clear database: ", err);
+    } finally {
+      setLoadingFirestore(false);
+      setIsResetModalOpen(false);
+      setActiveTab("dashboard");
+    }
+  };
 
   // --- CRUD DISPATCHERS SYNCS ---
 
   // Google Sheets import mergers
-  const handleImportPelanggan = (imported: Pelanggan[]) => {
-    setPelangganList(prev => {
-      const merged = [...prev];
-      imported.forEach(newItem => {
-        const index = merged.findIndex(p => p.id === newItem.id);
-        if (index > -1) {
-          merged[index] = newItem;
-        } else {
-          merged.push(newItem);
-        }
-      });
-      localStorage.setItem("pembayaran_pelanggan", JSON.stringify(merged));
-      return merged;
-    });
+  const handleImportPelanggan = async (imported: Pelanggan[]) => {
+    for (const newItem of imported) {
+      await savePelangganDoc(newItem);
+    }
   };
 
-  const handleImportTransaksi = (imported: Transaksi[]) => {
-    setTransaksiList(prev => {
-      const merged = [...prev];
-      imported.forEach(newItem => {
-        const index = merged.findIndex(t => t.id === newItem.id);
-        if (index > -1) {
-          merged[index] = newItem;
-        } else {
-          merged.push(newItem);
-        }
-      });
-      localStorage.setItem("pembayaran_transaksi", JSON.stringify(merged));
-      return merged;
-    });
+  const handleImportTransaksi = async (imported: Transaksi[]) => {
+    for (const newItem of imported) {
+      await saveTransaksiDoc(newItem);
+    }
   };
 
-  const handleRestoreAllData = (backup: {
+  const handleRestoreAllData = async (backup: {
     pelanggan?: Pelanggan[];
     tanggal?: TanggalPembayaran[];
     biaya?: BiayaTarif[];
     transaksi?: Transaksi[];
   }) => {
-    if (backup.pelanggan) {
-      setPelangganList(backup.pelanggan);
-      localStorage.setItem("pembayaran_pelanggan", JSON.stringify(backup.pelanggan));
-    }
-    if (backup.tanggal) {
-      setTanggalList(backup.tanggal);
-      localStorage.setItem("pembayaran_tanggal", JSON.stringify(backup.tanggal));
-    }
-    if (backup.biaya) {
-      setBiayaList(backup.biaya);
-      localStorage.setItem("pembayaran_biaya", JSON.stringify(backup.biaya));
-    }
-    if (backup.transaksi) {
-      setTransaksiList(backup.transaksi);
-      localStorage.setItem("pembayaran_transaksi", JSON.stringify(backup.transaksi));
+    setLoadingFirestore(true);
+    try {
+      if (backup.pelanggan) {
+        for (const item of backup.pelanggan) {
+          await savePelangganDoc(item);
+        }
+      }
+      if (backup.tanggal) {
+        for (const item of backup.tanggal) {
+          await saveTanggalDoc(item);
+        }
+      }
+      if (backup.biaya) {
+        for (const item of backup.biaya) {
+          await saveBiayaDoc(item);
+        }
+      }
+      if (backup.transaksi) {
+        for (const item of backup.transaksi) {
+          await saveTransaksiDoc(item);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to restore backup data to Firestore: ", err);
+    } finally {
+      setLoadingFirestore(false);
     }
   };
 
   // Pelanggan CRUD
-  const handleAddPelanggan = (p: Pelanggan | Pelanggan[]) => {
-    setPelangganList(prev => {
-      const newItems = Array.isArray(p) ? p : [p];
-      const updated = [...newItems, ...prev];
-      localStorage.setItem("pembayaran_pelanggan", JSON.stringify(updated));
-      return updated;
-    });
+  const handleAddPelanggan = async (p: Pelanggan | Pelanggan[]) => {
+    const newItems = Array.isArray(p) ? p : [p];
+    for (const item of newItems) {
+      await savePelangganDoc(item);
+    }
   };
 
-  const handleUpdatePelanggan = (p: Pelanggan) => {
-    const updated = pelangganList.map(item => item.id === p.id ? p : item);
-    setPelangganList(updated);
-    localStorage.setItem("pembayaran_pelanggan", JSON.stringify(updated));
+  const handleUpdatePelanggan = async (p: Pelanggan) => {
+    await savePelangganDoc(p);
   };
 
-  const handleDeletePelanggan = (id: string | string[]) => {
+  const handleDeletePelanggan = async (id: string | string[]) => {
     const idsToDelete = Array.isArray(id) ? id : [id];
-    const updated = pelangganList.filter(item => !idsToDelete.includes(item.id));
-    setPelangganList(updated);
-    localStorage.setItem("pembayaran_pelanggan", JSON.stringify(updated));
+    for (const dId of idsToDelete) {
+      await deletePelangganDoc(dId);
+    }
   };
 
   // Tanggal CRUD
-  const handleAddTanggal = (t: TanggalPembayaran) => {
-    const updated = [t, ...tanggalList];
-    setTanggalList(updated);
-    localStorage.setItem("pembayaran_tanggal", JSON.stringify(updated));
+  const handleAddTanggal = async (t: TanggalPembayaran) => {
+    await saveTanggalDoc(t);
   };
 
-  const handleUpdateTanggal = (t: TanggalPembayaran) => {
-    const updated = tanggalList.map(item => item.id === t.id ? t : item);
-    setTanggalList(updated);
-    localStorage.setItem("pembayaran_tanggal", JSON.stringify(updated));
+  const handleUpdateTanggal = async (t: TanggalPembayaran) => {
+    await saveTanggalDoc(t);
   };
 
-  const handleDeleteTanggal = (id: string) => {
-    const updated = tanggalList.filter(item => item.id !== id);
-    setTanggalList(updated);
-    localStorage.setItem("pembayaran_tanggal", JSON.stringify(updated));
+  const handleDeleteTanggal = async (id: string) => {
+    await deleteTanggalDoc(id);
   };
 
   // Biaya CRUD
-  const handleAddBiaya = (b: BiayaTarif) => {
-    const updated = [b, ...biayaList];
-    setBiayaList(updated);
-    localStorage.setItem("pembayaran_biaya", JSON.stringify(updated));
+  const handleAddBiaya = async (b: BiayaTarif) => {
+    await saveBiayaDoc(b);
   };
 
-  const handleUpdateBiaya = (b: BiayaTarif) => {
-    const updated = biayaList.map(item => item.id === b.id ? b : item);
-    setBiayaList(updated);
-    localStorage.setItem("pembayaran_biaya", JSON.stringify(updated));
+  const handleUpdateBiaya = async (b: BiayaTarif) => {
+    await saveBiayaDoc(b);
   };
 
-  const handleDeleteBiaya = (id: string) => {
-    const updated = biayaList.filter(item => item.id !== id);
-    setBiayaList(updated);
-    localStorage.setItem("pembayaran_biaya", JSON.stringify(updated));
+  const handleDeleteBiaya = async (id: string) => {
+    await deleteBiayaDoc(id);
   };
 
   // Transaksi Insert
-  const handleAddTransaksi = (tx: Transaksi | Transaksi[]) => {
-    setTransaksiList(prev => {
-      const newItems = Array.isArray(tx) ? tx : [tx];
-      const updated = [...newItems, ...prev];
-      localStorage.setItem("pembayaran_transaksi", JSON.stringify(updated));
-      return updated;
-    });
+  const handleAddTransaksi = async (tx: Transaksi | Transaksi[]) => {
+    const newItems = Array.isArray(tx) ? tx : [tx];
+    for (const item of newItems) {
+      await saveTransaksiDoc(item);
+    }
   };
 
   // Trigger quick payment navigation helper
@@ -336,6 +317,17 @@ export default function App() {
     setQuickPaymentCustomerId(pelangganId);
     setActiveTab("transaksi");
   };
+
+  if (loadingFirestore) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 text-center font-sans">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-950/20 via-slate-900 to-slate-950 -z-10"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mb-4"></div>
+        <h3 className="text-sm font-bold text-slate-100 mb-1">Membuka Koneksi Loket</h3>
+        <p className="text-xs text-slate-400 font-mono">Sinkronisasi database awan (Firestore) sedang berlangsung...</p>
+      </div>
+    );
+  }
 
   if (userRole === null) {
     return (

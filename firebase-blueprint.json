@@ -1,0 +1,41 @@
+{
+  "collections": {
+    "pelanggan": {
+      "id": "string",
+      "noPelanggan": "string",
+      "nama": "string",
+      "alamat": "string",
+      "idGolongan": "string",
+      "golongan": "string",
+      "createdAt": "string"
+    },
+    "tanggal_pembayaran": {
+      "id": "string",
+      "bulan": "string",
+      "tahun": "string",
+      "createdAt": "string"
+    },
+    "biaya_tarif": {
+      "id": "string",
+      "idGolongan": "string",
+      "golongan": "string",
+      "biaya": "number",
+      "createdAt": "string"
+    },
+    "transaksi": {
+      "id": "string",
+      "idPelanggan": "string",
+      "noPelanggan": "string",
+      "namaPelanggan": "string",
+      "idGolongan": "string",
+      "golongan": "string",
+      "idTanggal": "string",
+      "bulan": "string",
+      "tahun": "string",
+      "jumlahBayar": "number",
+      "status": "string",
+      "tanggalBayar": "string",
+      "createdAt": "string"
+    }
+  }
+}
