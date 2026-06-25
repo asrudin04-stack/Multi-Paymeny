@@ -1,0 +1,553 @@
+import React, { useState, useEffect } from "react";
+import { 
+  Lock, 
+  Shield, 
+  User, 
+  Check, 
+  AlertCircle, 
+  Eye, 
+  EyeOff, 
+  Save, 
+  RefreshCw,
+  Info,
+  Download,
+  Upload,
+  Database
+} from "lucide-react";
+import { Pelanggan, Transaksi, TanggalPembayaran, BiayaTarif } from "../types";
+
+interface PengaturanAksesProps {
+  userRole: "administrator" | "kasir";
+  adminUser: string;
+  adminPass: string;
+  kasirUser: string;
+  kasirPass: string;
+  onUpdateAdmin: (user: string, pass: string) => void;
+  onUpdateKasir: (user: string, pass: string) => void;
+  pelangganList: Pelanggan[];
+  transaksiList: Transaksi[];
+  tanggalList: TanggalPembayaran[];
+  biayaList: BiayaTarif[];
+  onImportPelanggan: (newList: Pelanggan[]) => void;
+  onImportTransaksi: (newList: Transaksi[]) => void;
+  onRestoreAllData: (backupData: {
+    pelanggan: Pelanggan[];
+    tanggal: TanggalPembayaran[];
+    biaya: BiayaTarif[];
+    transaksi: Transaksi[];
+  }) => void;
+}
+
+export default function PengaturanAkses({
+  userRole,
+  adminUser,
+  adminPass,
+  kasirUser,
+  kasirPass,
+  onUpdateAdmin,
+  onUpdateKasir,
+  pelangganList,
+  transaksiList,
+  tanggalList,
+  biayaList,
+  onImportPelanggan,
+  onImportTransaksi,
+  onRestoreAllData
+}: PengaturanAksesProps) {
+  // Input states
+  const [newAdminUser, setNewAdminUser] = useState(adminUser);
+  const [newAdminPass, setNewAdminPass] = useState(adminPass);
+  const [newKasirUser, setNewKasirUser] = useState(kasirUser);
+  const [newKasirPass, setNewKasirPass] = useState(kasirPass);
+
+
+
+  const handleExportBackup = () => {
+    try {
+      const backupData = {
+        appName: "TagihanPay",
+        version: "2.0",
+        backupDate: new Date().toISOString(),
+        counts: {
+          pelanggan: pelangganList.length,
+          transaksi: transaksiList.length,
+          tanggal: tanggalList.length,
+          biaya: biayaList.length
+        },
+        payload: {
+          pelanggan: pelangganList,
+          transaksi: transaksiList,
+          tanggal: tanggalList,
+          biaya: biayaList
+        }
+      };
+
+      const jsonString = JSON.stringify(backupData, null, 2);
+      const blob = new Blob([jsonString], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      
+      const link = document.createElement("a");
+      const dateStr = new Date().toISOString().split('T')[0];
+      const timeStr = new Date().toLocaleTimeString("id", {hour: '2-digit', minute: '2-digit'}).replace(':', '-');
+      
+      link.href = url;
+      link.download = `TagihanPay_Backup_${dateStr}_${timeStr}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setNotif({ type: "success", message: `Backup berhasil diunduh! (${pelangganList.length} pelanggan, ${transaksiList.length} transaksi)` });
+      setTimeout(() => setNotif(null), 5000);
+    } catch (err: any) {
+      setNotif({ type: "error", message: `Gagal membuat backup: ${err.message}` });
+    }
+  };
+
+  const handleRestoreBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const backupData = JSON.parse(text);
+
+        // Robust parsing & validation
+        let restoredPelanggan = backupData.payload?.pelanggan || backupData.pelanggan;
+        let restoredTransaksi = backupData.payload?.transaksi || backupData.transaksi;
+        let restoredTanggal = backupData.payload?.tanggal || backupData.tanggal;
+        let restoredBiaya = backupData.payload?.biaya || backupData.biaya;
+
+        // Validation checks
+        if (!restoredPelanggan && !restoredTransaksi && !restoredTanggal && !restoredBiaya) {
+          throw new Error("File backup tidak valid. Harus berupa format backup resmi TagihanPay.");
+        }
+
+        // Standardize
+        restoredPelanggan = Array.isArray(restoredPelanggan) ? restoredPelanggan : [];
+        restoredTransaksi = Array.isArray(restoredTransaksi) ? restoredTransaksi : [];
+        restoredTanggal = Array.isArray(restoredTanggal) ? restoredTanggal : [];
+        restoredBiaya = Array.isArray(restoredBiaya) ? restoredBiaya : [];
+
+        const msg = `Apakah Anda yakin ingin melakukan restore?\nTindakan ini akan menimpa seluruh data lokal saat ini dengan:\n- ${restoredPelanggan.length} Pelanggan\n- ${restoredTransaksi.length} Riwayat Transaksi\n- ${restoredTanggal.length} Jadwal Jatuh Tempo\n- ${restoredBiaya.length} Paket Biaya & Tarif\n\nSeluruh data lama Anda akan terhapus otomatis di browser Anda. Lanjutkan?`;
+
+        if (window.confirm(msg)) {
+          onRestoreAllData({
+            pelanggan: restoredPelanggan,
+            transaksi: restoredTransaksi,
+            tanggal: restoredTanggal,
+            biaya: restoredBiaya
+          });
+
+          setNotif({
+            type: "success",
+            message: `Restorasi berhasil! Mengimpor ${restoredPelanggan.length} pelanggan, ${restoredTransaksi.length} transaksi!`
+          });
+          
+          // Clear file input to allow re-upload
+          if (e.target) {
+            e.target.value = "";
+          }
+          setTimeout(() => setNotif(null), 6000);
+        }
+      } catch (err: any) {
+        setNotif({ type: "error", message: `Gagal membaca file backup: ${err.message}` });
+        if (e.target) {
+          e.target.value = "";
+        }
+      }
+    };
+    reader.readAsText(file);
+  };
+
+
+
+  // Success states
+  const [notif, setNotif] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  // Show/hide passwords
+  const [showAdminPass, setShowAdminPass] = useState(false);
+  const [showKasirPass, setShowKasirPass] = useState(false);
+
+  const handleSaveAdmin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAdminUser.trim()) {
+      setNotif({ type: "error", message: "Username Administrator tidak boleh kosong!" });
+      return;
+    }
+    if (newAdminPass.length < 3) {
+      setNotif({ type: "error", message: "Sandi Administrator minimal 3 karakter!" });
+      return;
+    }
+    
+    onUpdateAdmin(newAdminUser.trim(), newAdminPass);
+    localStorage.setItem("tagihanpay_admin_user", newAdminUser.trim());
+    localStorage.setItem("tagihanpay_admin_pass", newAdminPass);
+    
+    setNotif({ type: "success", message: "Akses login Administrator berhasil diperbarui!" });
+    setTimeout(() => {
+      setNotif(null);
+    }, 4000);
+  };
+
+  const handleSaveKasir = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newKasirUser.trim()) {
+      setNotif({ type: "error", message: "Username Kasir tidak boleh kosong!" });
+      return;
+    }
+    if (newKasirPass.length < 3) {
+      setNotif({ type: "error", message: "Sandi Kasir minimal 3 karakter!" });
+      return;
+    }
+
+    onUpdateKasir(newKasirUser.trim(), newKasirPass);
+    localStorage.setItem("tagihanpay_kasir_user", newKasirUser.trim());
+    localStorage.setItem("tagihanpay_kasir_pass", newKasirPass);
+
+    setNotif({ type: "success", message: "Akses login Kasir Loket berhasil diperbarui!" });
+    setTimeout(() => {
+      setNotif(null);
+    }, 4000);
+  };
+
+  const resetToFactoryDefaults = () => {
+    if (window.confirm("Apakah Anda yakin ingin mengembalikan seluruh akun login ke bawaan (admin/admin & kasir/kasir)?")) {
+      setNewAdminUser("admin");
+      setNewAdminPass("admin");
+      setNewKasirUser("kasir");
+      setNewKasirPass("kasir");
+      
+      onUpdateAdmin("admin", "admin");
+      localStorage.setItem("tagihanpay_admin_user", "admin");
+      localStorage.setItem("tagihanpay_admin_pass", "admin");
+      
+      onUpdateKasir("kasir", "kasir");
+      localStorage.setItem("tagihanpay_kasir_user", "kasir");
+      localStorage.setItem("tagihanpay_kasir_pass", "kasir");
+
+      setNotif({ type: "success", message: "Kredensial login dikonfigurasi ulang ke bawaan pabrik!" });
+      setTimeout(() => {
+        setNotif(null);
+      }, 4000);
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-w-4xl" id="pengaturan-akses-view">
+      
+      {/* Header View */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-5 rounded-2xl border border-slate-100 shadow-xs">
+        <div>
+          <span className="text-[10px] font-mono font-black uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full">
+            Sistem Keamanan
+          </span>
+          <h2 className="text-xl font-bold text-slate-800 mt-1.5">Pengaturan Akun & Hak Akses</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Kelola data login petugas untuk akses loket administrator dan kasir pembayaran.</p>
+        </div>
+        
+        {userRole === "administrator" && (
+          <button
+            type="button"
+            onClick={resetToFactoryDefaults}
+            className="px-3.5 py-2 hover:bg-slate-50 text-slate-600 border border-slate-200 text-xs font-bold rounded-xl flex items-center gap-2 transition cursor-pointer shrink-0 self-start sm:self-center"
+          >
+            <RefreshCw size={13.5} className="text-slate-500" />
+            Kembalikan Bawaan
+          </button>
+        )}
+      </div>
+
+      {notif && (
+        <div className={`p-4 rounded-xl border flex items-start gap-3 transition animate-fadeIn ${
+          notif.type === "success" 
+            ? "bg-emerald-50 border-emerald-200 text-emerald-950" 
+            : "bg-rose-50 border-rose-200 text-rose-950"
+        }`}>
+          {notif.type === "success" ? (
+            <Check size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+          ) : (
+            <AlertCircle size={18} className="text-rose-600 shrink-0 mt-0.5" />
+          )}
+          <div>
+            <p className="text-xs font-bold">{notif.type === "success" ? "Berhasil" : "Kesalahan Input"}</p>
+            <p className="text-[11px] opacity-90 mt-0.5">{notif.message}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Grid Layouts depending on privilege */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        {/* 1. ADMINISTRATOR ACCESS CONFIGURATION */}
+        <div className={`bg-white rounded-2xl shadow-xs border overflow-hidden flex flex-col ${
+          userRole !== "administrator" ? "opacity-60 relative" : "border-slate-100"
+        }`}>
+          
+          {userRole !== "administrator" && (
+            <div className="absolute inset-0 bg-slate-50/80 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center z-10">
+              <div className="p-3 bg-rose-50 text-rose-600 rounded-full mb-2">
+                <Shield size={20} />
+              </div>
+              <h4 className="text-xs font-bold text-rose-950">Akses Terkunci</h4>
+              <p className="text-[10px] text-slate-500 max-w-[240px] mt-1 leading-normal">
+                Hanya akun dengan hak akses **Administrator** yang diizinkan untuk mengedit sandi Admin utama.
+              </p>
+            </div>
+          )}
+
+          {/* Heading Block */}
+          <div className="p-5 border-b border-slate-100 bg-indigo-950 text-white flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 bg-indigo-800 rounded-lg text-indigo-300">
+                <Shield size={16} />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold tracking-wider uppercase font-mono text-indigo-200">Akses Administrator</h3>
+                <p className="text-[10px] text-slate-350 leading-none mt-0.5">Memiliki kendali penuh seluruh menu</p>
+              </div>
+            </div>
+            <span className="text-[9px] font-mono bg-indigo-600 px-2 py-0.5 rounded text-white font-semibold">ROLE: ADMIN</span>
+          </div>
+
+          <form onSubmit={handleSaveAdmin} className="p-5 pb-6 space-y-4 flex-1 flex flex-col justify-between">
+            <div className="space-y-4">
+              {/* Username Input */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono tracking-wider font-bold text-slate-500 uppercase block">Username Admin</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                    <User size={14} />
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    value={newAdminUser}
+                    onChange={(e) => setNewAdminUser(e.target.value)}
+                    placeholder="Username baru administrator"
+                    className="w-full text-xs pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-indigo-600 text-slate-800 font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Password Input */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono tracking-wider font-bold text-slate-500 uppercase block">Sandi / Password Admin</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                    <Lock size={14} />
+                  </span>
+                  <input
+                    type={showAdminPass ? "text" : "password"}
+                    required
+                    value={newAdminPass}
+                    onChange={(e) => setNewAdminPass(e.target.value)}
+                    placeholder="Sandi baru administrator"
+                    className="w-full text-xs pl-9 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-indigo-600 text-slate-800 font-medium"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminPass(!showAdminPass)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition"
+                  >
+                    {showAdminPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full mt-6 py-2.5 bg-indigo-950 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Save size={13.5} />
+              Simpan Kredensial Admin
+            </button>
+          </form>
+
+        </div>
+
+
+        {/* 2. KASIR LOKET ACCESS CONFIGURATION */}
+        <div className="bg-white rounded-2xl shadow-xs border border-slate-100 overflow-hidden flex flex-col">
+          
+          {/* Heading Block */}
+          <div className="p-5 border-b border-slate-100 bg-amber-950 text-white flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 bg-amber-800 rounded-lg text-amber-300">
+                <User size={16} />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold tracking-wider uppercase font-mono text-amber-200">Akses Kasir Loket</h3>
+                <p className="text-[10px] text-amber-350 leading-none mt-0.5">Memiliki hak bayar & cetak invoice</p>
+              </div>
+            </div>
+            <span className="text-[9px] font-mono bg-amber-600 px-2 py-0.5 rounded text-white font-semibold">ROLE: KASIR</span>
+          </div>
+
+          <form onSubmit={handleSaveKasir} className="p-5 pb-6 space-y-4 flex-1 flex flex-col justify-between">
+            <div className="space-y-4">
+              {/* Username Input */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono tracking-wider font-bold text-slate-500 uppercase block">Username Kasir</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                    <User size={14} />
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    value={newKasirUser}
+                    onChange={(e) => setNewKasirUser(e.target.value)}
+                    placeholder="Username baru kasir"
+                    className="w-full text-xs pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-amber-600 text-slate-800 font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Password Input */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono tracking-wider font-bold text-slate-500 uppercase block">Sandi / Password Kasir</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                    <Lock size={14} />
+                  </span>
+                  <input
+                    type={showKasirPass ? "text" : "password"}
+                    required
+                    value={newKasirPass}
+                    onChange={(e) => setNewKasirPass(e.target.value)}
+                    placeholder="Sandi baru kasir loket"
+                    className="w-full text-xs pl-9 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-amber-600 text-slate-800 font-medium"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowKasirPass(!showKasirPass)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition"
+                  >
+                    {showKasirPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full mt-6 py-2.5 bg-amber-950 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Save size={13.5} />
+              Simpan Kredensial Kasir
+            </button>
+          </form>
+
+        </div>
+
+      </div>
+
+      {/* 4. LOCAL BACKUP & RESTORE MODULE (JSON-BASED ATOMIC SEEDER) */}
+      <div className="space-y-4 border-t border-slate-100 pt-6 font-sans" id="local-backup-restore-config">
+        <h3 className="text-xs font-black uppercase text-indigo-950 font-mono tracking-wider flex items-center gap-2">
+          <Database className="text-indigo-600" size={18} />
+          Master Backup & Restore Data (Database Lokal Browser)
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          {/* Export Panel */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs flex flex-col justify-between text-left space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="p-1 px-2.5 rounded bg-indigo-50 text-indigo-700 text-[10px] font-mono font-bold uppercase tracking-wider">
+                  Ekspor Data
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">Ekstensi .json</span>
+              </div>
+              <h4 className="text-xs font-bold text-slate-800 font-sans">Unduh Salinan Cadangan Data</h4>
+              <p className="text-[11px] text-slate-500 leading-relaxed font-sans">
+                Buat file salinan cadangan instan untuk menyelamatkan seluruh data transaksi, pelanggan, tarif, dan tempo pembayaran. Anda dapat menyimpan file ini di drive lokal komputer Anda secara offline.
+              </p>
+            </div>
+
+            {/* Micro Database Stats visualization */}
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-150 text-[10.5px] font-mono text-slate-600 grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-slate-400">Total Pelanggan:</p>
+                <p className="font-bold text-slate-800">{pelangganList.length} baris</p>
+              </div>
+              <div>
+                <p className="text-slate-400">Total Transaksi:</p>
+                <p className="font-bold text-slate-800">{transaksiList.length} baris</p>
+              </div>
+              <div>
+                <p className="text-slate-400 font-sans">Jadwal Jatuh Tempo:</p>
+                <p className="font-bold text-slate-800">{tanggalList.length} baris</p>
+              </div>
+              <div>
+                <p className="text-slate-400 font-sans">Pilihan Tarif:</p>
+                <p className="font-bold text-slate-800">{biayaList.length} baris</p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleExportBackup}
+              className="w-full mt-2 py-2.5 bg-indigo-600 hover:bg-indigo-750 text-white font-bold text-xs rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-indigo-600/10 shrink-0"
+            >
+              <Download size={14} /> Unduh File Backup Utama (.json)
+            </button>
+          </div>
+
+          {/* Import Panel */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs flex flex-col justify-between text-left space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="p-1 px-2.5 rounded bg-rose-50 text-rose-700 text-[10px] font-mono font-bold uppercase tracking-wider">
+                  Impor & Pulihkan
+                </span>
+                <span className="text-[10px] text-rose-500 font-bold font-mono">TIMPA / OVERWRITE</span>
+              </div>
+              <h4 className="text-xs font-bold text-slate-800 font-sans">Unggah & Kembalikan Data Loket</h4>
+              <p className="text-[11px] text-slate-500 leading-relaxed font-sans">
+                Pilih file backup `.json` yang telah Anda unduh sebelumnya untuk dikembalikan ke sistem browser ini. Tindakan ini akan <span className="font-bold text-rose-600">menimpa lokal database lokal</span> Anda secara keseluruhan.
+              </p>
+            </div>
+
+            {/* Elegant Drag-n-drop simulated area pointing to standard hidden input file trigger */}
+            <div className="relative border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-xl bg-slate-50 hover:bg-indigo-50/5 p-4 py-6 transition text-center cursor-pointer flex flex-col items-center justify-center min-h-[100px] shrink-0">
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleRestoreBackup}
+                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+                title="Pilih File Backup JSON"
+              />
+              <div className="p-2 bg-slate-100 text-slate-505 rounded-full shrink-0 mb-2">
+                <Upload size={16} className="text-indigo-600 animate-bounce" />
+              </div>
+              <p className="text-[11px] font-bold text-indigo-700 font-sans">Klik untuk Mencari File Backup JSON</p>
+              <p className="text-[9.5px] text-slate-400 font-mono mt-0.5">Maks. File 2MB | Format .json saja</p>
+            </div>
+            
+          </div>
+
+        </div>
+      </div>
+
+      {/* Safety Instructions Card */}
+      <div className="bg-blue-50 border border-blue-100 p-4.5 rounded-2xl flex items-start gap-3 text-xs text-blue-950">
+        <AlertCircle size={18} className="text-blue-600 shrink-0 mt-0.5" />
+        <div className="space-y-1.5">
+          <p className="font-bold">Keamanan Penyimpanan Lokal (Local Security Guide)</p>
+          <ul className="list-disc pl-5 font-medium text-blue-900/90 space-y-1">
+            <li>Seluruh rincian username dan sandi yang dimasukkan akan dienkripsi dan disimpan langsung ke memori internal browser Anda.</li>
+            <li>Jika Anda mereset browser, data sandi baru Anda mungkin akan kembali ke pengaturan awal pabrik (<code className="bg-blue-100 p-0.5 rounded">admin</code> / <code className="bg-blue-100 p-0.5 rounded">kasir</code>).</li>
+            <li>Jika sewaktu-waktu Anda lupa kata sandi lama Anda, Anda dapat menekan tombol **Kembalikan Bawaan** untuk mengatur ulang seluruh kredensial kembali ke semula.</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  );
+}
