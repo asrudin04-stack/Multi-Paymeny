@@ -561,15 +561,25 @@ export default function TransaksiView({
 
   // Filtered customer list for the Dropdown selector
   const filteredPelangganList = useMemo(() => {
-    if (!customerSearchText.trim()) return pelangganList;
+    const currentPeriod = `${periodeTahun}-${periodeBulan}`;
+    
+    // Filter customers who have NOT paid for the selected period
+    const unpaidPelangganList = pelangganList.filter((p) => {
+      const isPaid = transaksiList.some(
+        (tx) => tx.idPelanggan === p.id && tx.periode === currentPeriod
+      );
+      return !isPaid;
+    });
+
+    if (!customerSearchText.trim()) return unpaidPelangganList;
     const query = customerSearchText.toLowerCase();
-    return pelangganList.filter(p => 
+    return unpaidPelangganList.filter(p => 
       p.nama.toLowerCase().includes(query) ||
       p.id.toLowerCase().includes(query) ||
       (p.noTelp && p.noTelp.toLowerCase().includes(query)) ||
       (p.noMeter && p.noMeter.toLowerCase().includes(query))
     );
-  }, [pelangganList, customerSearchText]);
+  }, [pelangganList, transaksiList, periodeBulan, periodeTahun, customerSearchText]);
 
   // Filtered unpaid arrears list based on Search terms
   const filteredArrearsList = useMemo(() => {
@@ -721,15 +731,15 @@ export default function TransaksiView({
                   />
                 </div>
 
-                <select
+                 <select
                   value={selectedCustomerId}
                   onChange={(e) => setSelectedCustomerId(e.target.value)}
                   className="w-full text-xs p-2.5 border border-slate-250 rounded-lg focus:outline-hidden focus:border-indigo-650 text-slate-850 font-medium bg-white cursor-pointer mt-1"
                 >
                   <option value="">
                     {filteredPelangganList.length === 0 
-                      ? "-- Pelanggan Tidak Ditemukan --" 
-                      : `-- Pilih dari ${filteredPelangganList.length} Pelanggan --`}
+                      ? "-- Semua Pelanggan Lunas / Tidak Ada Tunggakan Periode Ini --" 
+                      : `-- Pilih dari ${filteredPelangganList.length} Pelanggan Belum Lunas --`}
                   </option>
                   {filteredPelangganList.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -737,6 +747,12 @@ export default function TransaksiView({
                     </option>
                   ))}
                 </select>
+                <div className="flex items-center justify-between px-1 mt-1 text-[10px] text-amber-600 font-bold bg-amber-50/60 p-1.5 rounded-md border border-amber-100/50">
+                  <span className="flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                    Menampilkan pelanggan yang belum lunas periode {getMonthLabel(periodeBulan)} {periodeTahun}
+                  </span>
+                </div>
                 {errors.idPelanggan && <p className="text-[10px] text-rose-500 mt-1">{errors.idPelanggan}</p>}
               </div>
 
