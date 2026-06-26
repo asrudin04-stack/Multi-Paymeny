@@ -89,7 +89,10 @@ export default function App() {
   const [isInitialLoadFinished, setIsInitialLoadFinished] = useState(false);
 
   // Navigation: active main view tab state
-  const [activeTab, setActiveTab] = useState<string>("dashboard");
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    const savedRole = localStorage.getItem("tagihanpay_role");
+    return savedRole === "kasir" ? "transaksi" : "dashboard";
+  });
 
   // User Authenticated Role Session
   const [userRole, setUserRole] = useState<"administrator" | "kasir" | null>(() => {
@@ -146,12 +149,12 @@ export default function App() {
       setKasirDesaCred(matchedPetugas.wilayahDesa);
       localStorage.setItem("tagihanpay_kasir_nama", matchedPetugas.nama);
       localStorage.setItem("tagihanpay_kasir_desa", matchedPetugas.wilayahDesa);
-      setActiveTab("dashboard");
+      setActiveTab("transaksi");
     } else if (trimmedUser === kasirUserCred.toLowerCase() && trimmedPass === kasirPassCred) {
       // Fallback fallback credentials
       setUserRole("kasir");
       localStorage.setItem("tagihanpay_role", "kasir");
-      setActiveTab("dashboard");
+      setActiveTab("transaksi");
     } else {
       setLoginError("Maaf, kombinasi Username atau Password salah.");
     }
@@ -160,7 +163,7 @@ export default function App() {
   const handleBypassLogin = (role: "administrator" | "kasir") => {
     setUserRole(role);
     localStorage.setItem("tagihanpay_role", role);
-    setActiveTab("dashboard");
+    setActiveTab(role === "kasir" ? "transaksi" : "dashboard");
   };
 
   const handleLogout = () => {
@@ -494,22 +497,24 @@ export default function App() {
           {/* Navigation Links Group */}
           <div className="px-3.5 space-y-7">
             
-            {/* Core Sections */}
-            <div className="space-y-1.5">
-              <span className="px-3 text-[9px] uppercase font-mono tracking-wider text-slate-500 font-bold">Utama</span>
-              
-              <button
-                onClick={() => setActiveTab("dashboard")}
-                className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-lg transition cursor-pointer ${
-                  activeTab === "dashboard"
-                    ? "bg-indigo-600 text-white shadow-xs font-bold"
-                    : "text-slate-400 hover:text-white hover:bg-slate-800"
-                }`}
-              >
-                <LayoutDashboard size={15} />
-                Beranda
-              </button>
-            </div>
+            {/* Core Sections (Only for Administrator) */}
+            {userRole === "administrator" && (
+              <div className="space-y-1.5">
+                <span className="px-3 text-[9px] uppercase font-mono tracking-wider text-slate-500 font-bold">Utama</span>
+                
+                <button
+                  onClick={() => setActiveTab("dashboard")}
+                  className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                    activeTab === "dashboard"
+                      ? "bg-indigo-600 text-white shadow-xs font-bold"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <LayoutDashboard size={15} />
+                  Beranda
+                </button>
+              </div>
+            )}
 
             {/* Master Data Subsection (Only for Administrator) */}
             {userRole === "administrator" && (
@@ -573,51 +578,55 @@ export default function App() {
               </button>
             </div>
 
-            {/* Analytical Report Subsection */}
-            <div className="space-y-1.5">
-              <span className="px-3 text-[9px] uppercase font-mono tracking-wider text-slate-500 font-bold">OUTPUT DATA</span>
-              
-              <button
-                onClick={() => setActiveTab("laporan")}
-                className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-lg transition cursor-pointer ${
-                  activeTab === "laporan"
-                    ? "bg-indigo-600 text-white shadow-xs font-bold"
-                    : "text-slate-400 hover:text-white hover:bg-slate-800"
-                }`}
-              >
-                <FileText size={15} />
-                Menu Laporan Lengkap
-              </button>
-            </div>
+            {/* Analytical Report Subsection (Only for Administrator) */}
+            {userRole === "administrator" && (
+              <div className="space-y-1.5">
+                <span className="px-3 text-[9px] uppercase font-mono tracking-wider text-slate-500 font-bold">OUTPUT DATA</span>
+                
+                <button
+                  onClick={() => setActiveTab("laporan")}
+                  className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                    activeTab === "laporan"
+                      ? "bg-indigo-600 text-white shadow-xs font-bold"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <FileText size={15} />
+                  Menu Laporan Lengkap
+                </button>
+              </div>
+            )}
 
-            {/* Account Settings Subsection */}
-            <div className="space-y-1.5">
-              <span className="px-3 text-[9px] uppercase font-mono tracking-wider text-slate-500 font-bold">AKSES & INTEGRASI</span>
-              
-              <button
-                onClick={() => setActiveTab("pengaturan")}
-                className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-lg transition cursor-pointer ${
-                  activeTab === "pengaturan"
-                    ? "bg-indigo-600 text-white shadow-xs font-bold"
-                    : "text-slate-400 hover:text-white hover:bg-slate-800"
-                }`}
-              >
-                <Lock size={15} />
-                Pengaturan & Integrasi
-              </button>
+            {/* Account Settings Subsection (Only for Administrator) */}
+            {userRole === "administrator" && (
+              <div className="space-y-1.5">
+                <span className="px-3 text-[9px] uppercase font-mono tracking-wider text-slate-500 font-bold">AKSES & INTEGRASI</span>
+                
+                <button
+                  onClick={() => setActiveTab("pengaturan")}
+                  className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                    activeTab === "pengaturan"
+                      ? "bg-indigo-600 text-white shadow-xs font-bold"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <Lock size={15} />
+                  Pengaturan & Integrasi
+                </button>
 
-              <button
-                onClick={() => setActiveTab("backup")}
-                className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-lg transition cursor-pointer ${
-                  activeTab === "backup"
-                    ? "bg-indigo-600 text-white shadow-xs font-bold"
-                    : "text-slate-400 hover:text-white hover:bg-slate-800"
-                }`}
-              >
-                <Database size={15} />
-                Backup & Restore Data
-              </button>
-            </div>
+                <button
+                  onClick={() => setActiveTab("backup")}
+                  className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                    activeTab === "backup"
+                      ? "bg-indigo-600 text-white shadow-xs font-bold"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <Database size={15} />
+                  Backup & Restore Data
+                </button>
+              </div>
+            )}
 
             {/* Danger Zone Utilities (Only for Administrator) */}
             {userRole === "administrator" && (
@@ -689,14 +698,16 @@ export default function App() {
           >
             <div className="grid grid-cols-1 gap-2.5">
               
-              <button
-                onClick={() => { setActiveTab("dashboard"); setIsMobileMenuOpen(false); }}
-                className={`py-2 px-3 text-xs font-bold rounded-lg text-left flex items-center gap-2.5 ${
-                  activeTab === "dashboard" ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-slate-850"
-                }`}
-              >
-                <LayoutDashboard size={15} /> Beranda
-              </button>
+              {userRole === "administrator" && (
+                <button
+                  onClick={() => { setActiveTab("dashboard"); setIsMobileMenuOpen(false); }}
+                  className={`py-2 px-3 text-xs font-bold rounded-lg text-left flex items-center gap-2.5 ${
+                    activeTab === "dashboard" ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-slate-850"
+                  }`}
+                >
+                  <LayoutDashboard size={15} /> Beranda
+                </button>
+              )}
 
               {userRole === "administrator" && (
                 <>
@@ -729,32 +740,36 @@ export default function App() {
                 <Receipt size={15} /> Transaksi Pembayaran
               </button>
 
-              <button
-                onClick={() => { setActiveTab("laporan"); setIsMobileMenuOpen(false); }}
-                className={`py-2 px-3 text-xs font-bold rounded-lg text-left flex items-center gap-2.5 ${
-                  activeTab === "laporan" ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-slate-850"
-                }`}
-              >
-                <FileText size={15} /> Menu Laporan Lengkap
-              </button>
+              {userRole === "administrator" && (
+                <>
+                  <button
+                    onClick={() => { setActiveTab("laporan"); setIsMobileMenuOpen(false); }}
+                    className={`py-2 px-3 text-xs font-bold rounded-lg text-left flex items-center gap-2.5 ${
+                      activeTab === "laporan" ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-slate-850"
+                    }`}
+                  >
+                    <FileText size={15} /> Menu Laporan Lengkap
+                  </button>
 
-              <button
-                onClick={() => { setActiveTab("pengaturan"); setIsMobileMenuOpen(false); }}
-                className={`py-2 px-3 text-xs font-bold rounded-lg text-left flex items-center gap-2.5 ${
-                  activeTab === "pengaturan" ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-slate-850"
-                }`}
-              >
-                <Lock size={15} /> Pengaturan & Integrasi
-              </button>
+                  <button
+                    onClick={() => { setActiveTab("pengaturan"); setIsMobileMenuOpen(false); }}
+                    className={`py-2 px-3 text-xs font-bold rounded-lg text-left flex items-center gap-2.5 ${
+                      activeTab === "pengaturan" ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-slate-850"
+                    }`}
+                  >
+                    <Lock size={15} /> Pengaturan & Integrasi
+                  </button>
 
-              <button
-                onClick={() => { setActiveTab("backup"); setIsMobileMenuOpen(false); }}
-                className={`py-2 px-3 text-xs font-bold rounded-lg text-left flex items-center gap-2.5 ${
-                  activeTab === "backup" ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-slate-850"
-                }`}
-              >
-                <Database size={15} /> Backup & Restore Data
-              </button>
+                  <button
+                    onClick={() => { setActiveTab("backup"); setIsMobileMenuOpen(false); }}
+                    className={`py-2 px-3 text-xs font-bold rounded-lg text-left flex items-center gap-2.5 ${
+                      activeTab === "backup" ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-slate-850"
+                    }`}
+                  >
+                    <Database size={15} /> Backup & Restore Data
+                  </button>
+                </>
+              )}
 
               {userRole === "administrator" && (
                 <button
