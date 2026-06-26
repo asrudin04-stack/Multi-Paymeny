@@ -213,16 +213,20 @@ export default function TransaksiView({
           const tgl = String(item.tanggalBayar || item.tanggal_bayar || item.tanggal || new Date().toISOString().split("T")[0]).trim();
           const ket = String(item.keterangan || "").trim();
 
+          const matchesDesa = userRole !== "kasir" || !kasirDesa || !customer || (customer.alamat && customer.alamat.toLowerCase().includes(kasirDesa.toLowerCase()));
+          
           return {
             idPelanggan: idPel,
-            namaPelanggan: customer ? customer.nama : "Pelanggan Tidak Ditemukan",
+            namaPelanggan: customer 
+              ? (matchesDesa ? customer.nama : `Luar Wilayah Tugas Anda (${customer.alamat})`) 
+              : "Pelanggan Tidak Ditemukan",
             layanan: customer ? customer.layanan : "PLN",
             periode: per,
             jumlahBayar: jBayar,
             metodePembayaran: met,
             tanggalBayar: tgl,
             keterangan: ket,
-            isValid: !!customer
+            isValid: !!customer && matchesDesa
           };
         });
         
@@ -307,16 +311,20 @@ export default function TransaksiView({
           const tgl = cleanedCols[tglIdx] || new Date().toISOString().split("T")[0];
           const ket = cleanedCols[ketIdx] || "";
 
+          const matchesDesa = userRole !== "kasir" || !kasirDesa || !customer || (customer.alamat && customer.alamat.toLowerCase().includes(kasirDesa.toLowerCase()));
+
           results.push({
             idPelanggan: idPel,
-            namaPelanggan: customer ? customer.nama : "ID Pelanggan Tidak Terdaftar",
+            namaPelanggan: customer 
+              ? (matchesDesa ? customer.nama : `Luar Wilayah Tugas Anda (${customer.alamat})`) 
+              : "ID Pelanggan Tidak Terdaftar",
             layanan: customer ? customer.layanan : "PLN",
             periode: per,
             jumlahBayar: jBayar,
             metodePembayaran: met,
             tanggalBayar: tgl,
             keterangan: ket,
-            isValid: !!customer
+            isValid: !!customer && matchesDesa
           });
         });
 
@@ -469,7 +477,13 @@ export default function TransaksiView({
   // Validate form
   const validateForm = () => {
     const tempErrors: { [key: string]: string } = {};
-    if (!selectedCustomerId) tempErrors.idPelanggan = "Pilih pelanggan terlebih dahulu";
+    if (!selectedCustomerId) {
+      tempErrors.idPelanggan = "Pilih pelanggan terlebih dahulu";
+    } else if (userRole === "kasir" && kasirDesa) {
+      if (!selectedCustomerInfo || !selectedCustomerInfo.alamat || !selectedCustomerInfo.alamat.toLowerCase().includes(kasirDesa.toLowerCase())) {
+        tempErrors.idPelanggan = `Anda hanya diizinkan memproses tagihan pelanggan di wilayah tugas Anda (${kasirDesa})!`;
+      }
+    }
     if (jumlahBayar <= 0) tempErrors.jumlahBayar = "Masukkan nominal jumlah bayar yang valid";
     setErrors(tempErrors);
     return Object.keys(tempErrors).length === 0;

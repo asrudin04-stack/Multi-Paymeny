@@ -856,7 +856,7 @@ export default function App() {
             >
               
               {/* RENDER VIEW: BERANDA */}
-              {activeTab === "dashboard" && (
+              {activeTab === "dashboard" && userRole === "administrator" && (
                 <Dashboard 
                   pelangganList={pelangganList}
                   transaksiList={transaksiList}
@@ -868,7 +868,7 @@ export default function App() {
               )}
 
               {/* RENDER VIEW: DATA MASTER PELANGGAN & TARIF (MERGED) */}
-              {activeTab === "pelanggan" && (
+              {activeTab === "pelanggan" && userRole === "administrator" && (
                 <MasterPelanggan 
                   pelangganList={pelangganList}
                   biayaList={biayaList}
@@ -883,7 +883,7 @@ export default function App() {
               )}
 
               {/* RENDER VIEW: DATA TANGGAL DUE DATES */}
-              {activeTab === "tanggal" && (
+              {activeTab === "tanggal" && userRole === "administrator" && (
                 <MasterTanggal 
                   tanggalList={tanggalList}
                   onAddTanggal={handleAddTanggal}
@@ -920,7 +920,7 @@ export default function App() {
               )}
 
               {/* RENDER VIEW: LAPORAN */}
-              {activeTab === "laporan" && (
+              {activeTab === "laporan" && userRole === "administrator" && (
                 <LaporanView 
                   pelangganList={pelangganList}
                   transaksiList={transaksiList}
@@ -930,7 +930,7 @@ export default function App() {
               )}
 
               {/* RENDER VIEW: PENGATURAN AKSES & INTEGRASI */}
-              {activeTab === "pengaturan" && (
+              {activeTab === "pengaturan" && userRole === "administrator" && (
                 <PengaturanAkses 
                   userRole={userRole!}
                   adminUser={adminUserCred}
@@ -960,7 +960,7 @@ export default function App() {
               )}
 
               {/* RENDER VIEW: BACKUP & RESTORE DATA */}
-              {activeTab === "backup" && (
+              {activeTab === "backup" && userRole === "administrator" && (
                 <BackupRestoreView 
                   pelangganList={pelangganList}
                   transaksiList={transaksiList}
