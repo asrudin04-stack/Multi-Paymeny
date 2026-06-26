@@ -21,7 +21,9 @@ import {
   Activity,
   ArrowRight,
   Sparkles,
-  X
+  X,
+  Lock,
+  MapPin
 } from "lucide-react";
 import { 
   Pelanggan, 
@@ -105,6 +107,9 @@ interface TransaksiViewProps {
   // State for preselecting from other tabs
   initialSelectedCustomerId?: string;
   clearInitialSelectedCustomerId?: () => void;
+  userRole?: "administrator" | "kasir";
+  kasirNama?: string;
+  kasirDesa?: string;
 }
 
 export default function TransaksiView({
@@ -114,7 +119,10 @@ export default function TransaksiView({
   tanggalList,
   onAddTransaksi,
   initialSelectedCustomerId,
-  clearInitialSelectedCustomerId
+  clearInitialSelectedCustomerId,
+  userRole = "administrator",
+  kasirNama = "Asrudin",
+  kasirDesa = "Desa Makmur"
 }: TransaksiViewProps) {
   
   // Navigation tabs for Transaksi sub-menu
@@ -564,12 +572,19 @@ export default function TransaksiView({
     const currentPeriod = `${periodeTahun}-${periodeBulan}`;
     
     // Filter customers who have NOT paid for the selected period
-    const unpaidPelangganList = pelangganList.filter((p) => {
+    let unpaidPelangganList = pelangganList.filter((p) => {
       const isPaid = transaksiList.some(
         (tx) => tx.idPelanggan === p.id && tx.periode === currentPeriod
       );
       return !isPaid;
     });
+
+    // Filter by Cashier's assigned village/desa
+    if (userRole === "kasir" && kasirDesa) {
+      unpaidPelangganList = unpaidPelangganList.filter(p => 
+        p.alamat && p.alamat.toLowerCase().includes(kasirDesa.toLowerCase())
+      );
+    }
 
     if (!customerSearchText.trim()) return unpaidPelangganList;
     const query = customerSearchText.toLowerCase();
@@ -579,19 +594,28 @@ export default function TransaksiView({
       (p.noTelp && p.noTelp.toLowerCase().includes(query)) ||
       (p.noMeter && p.noMeter.toLowerCase().includes(query))
     );
-  }, [pelangganList, transaksiList, periodeBulan, periodeTahun, customerSearchText]);
+  }, [pelangganList, transaksiList, periodeBulan, periodeTahun, customerSearchText, userRole, kasirDesa]);
 
   // Filtered unpaid arrears list based on Search terms
   const filteredArrearsList = useMemo(() => {
-    if (!arrearsSearch.trim()) return arrearsList;
+    let list = arrearsList;
+
+    // Filter by Cashier's assigned village/desa
+    if (userRole === "kasir" && kasirDesa) {
+      list = list.filter(item => 
+        item.pelanggan.alamat && item.pelanggan.alamat.toLowerCase().includes(kasirDesa.toLowerCase())
+      );
+    }
+
+    if (!arrearsSearch.trim()) return list;
     const query = arrearsSearch.toLowerCase();
-    return arrearsList.filter(item => 
+    return list.filter(item => 
       item.pelanggan.nama.toLowerCase().includes(query) ||
       item.pelanggan.id.toLowerCase().includes(query) ||
       (item.pelanggan.noTelp && item.pelanggan.noTelp.toLowerCase().includes(query)) ||
       (item.pelanggan.noMeter && item.pelanggan.noMeter.toLowerCase().includes(query))
     );
-  }, [arrearsList, arrearsSearch]);
+  }, [arrearsList, arrearsSearch, userRole, kasirDesa]);
 
   // Handle direct rapid payment from arrears list
   const handleArrearsPayNow = (p: Pelanggan, periodLabel: string) => {
@@ -621,9 +645,16 @@ export default function TransaksiView({
       
       const matchesLayanan = historyLayanan === "SEMUA" || tx.layanan === historyLayanan;
 
-      return matchesSearch && matchesLayanan;
+      // Filter by Cashier's assigned village/desa
+      let matchesWilayah = true;
+      if (userRole === "kasir" && kasirDesa) {
+        const customer = pelangganList.find(p => p.id === tx.idPelanggan);
+        matchesWilayah = !!(customer?.alamat && customer.alamat.toLowerCase().includes(kasirDesa.toLowerCase()));
+      }
+
+      return matchesSearch && matchesLayanan && matchesWilayah;
     });
-  }, [transaksiList, historySearch, historyLayanan]);
+  }, [transaksiList, historySearch, historyLayanan, userRole, kasirDesa, pelangganList]);
 
   // Handle print layout trigger
   const triggerBrowserPrint = () => {
@@ -706,15 +737,24 @@ export default function TransaksiView({
               <div className="space-y-1.5 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
                 <label className="text-[11px] font-mono uppercase text-slate-500 font-semibold flex items-center justify-between">
                   <span>PILIH PELANGGAN</span>
-                  {customerSearchText && (
-                    <button 
-                      type="button" 
-                      onClick={() => setCustomerSearchText("")} 
-                      className="text-[10px] text-indigo-600 hover:underline font-semibold"
-                    >
-                      Reset Pencarian
-                    </button>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {userRole === "kasir" && kasirDesa && (
+                      <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md border border-amber-200 shadow-2xs">
+                        <Lock size={10} className="text-amber-600" />
+                        <MapPin size={10} className="text-amber-600" />
+                        Akses {kasirDesa}
+                      </span>
+                    )}
+                    {customerSearchText && (
+                      <button 
+                        type="button" 
+                        onClick={() => setCustomerSearchText("")} 
+                        className="text-[10px] text-indigo-600 hover:underline font-semibold"
+                      >
+                        Reset Pencarian
+                      </button>
+                    )}
+                  </div>
                 </label>
                 
                 {/* Real-time Name search input */}
@@ -972,8 +1012,8 @@ export default function TransaksiView({
         <div className="space-y-4" id="riwayat-section">
           
           {/* Filtering row for transaction logs */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
-            <div className="relative md:col-span-2">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+            <div className={`relative ${userRole === "kasir" && kasirDesa ? "md:col-span-6" : "md:col-span-8"}`}>
               <Search size={15} className="absolute left-3 top-2.5 text-slate-400" />
               <input 
                 type="text"
@@ -984,7 +1024,7 @@ export default function TransaksiView({
               />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className={`flex items-center gap-2 ${userRole === "kasir" && kasirDesa ? "md:col-span-3" : "md:col-span-4"}`}>
               <Filter size={14} className="text-slate-400" />
               <select
                 value={historyLayanan}
@@ -997,6 +1037,16 @@ export default function TransaksiView({
                 <option value="WIFI">Khusus WIFI (Internet)</option>
               </select>
             </div>
+
+            {userRole === "kasir" && kasirDesa && (
+              <div className="flex items-center md:col-span-3">
+                <div className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-lg border border-amber-200 w-full justify-center shadow-2xs font-bold text-[11px] font-sans">
+                  <Lock size={12} className="text-amber-600" />
+                  <MapPin size={12} className="text-amber-600" />
+                  Terkunci: {kasirDesa}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Transactions List */}
@@ -1130,7 +1180,7 @@ export default function TransaksiView({
           </div>
 
           {/* Real-time search/filter for Arrears/Unpaid List */}
-          <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs flex items-center gap-3">
+          <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <div className="relative flex-1">
               <Search size={15} className="absolute left-3 top-2.5 text-slate-400" />
               <input 
@@ -1141,6 +1191,13 @@ export default function TransaksiView({
                 className="pl-9 pr-4 py-1.5 w-full bg-slate-50 text-xs border border-slate-250 rounded-lg focus:outline-hidden focus:border-indigo-600 text-slate-705"
               />
             </div>
+            {userRole === "kasir" && kasirDesa && (
+              <div className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-lg border border-amber-200 shrink-0 shadow-2xs font-bold text-[11px] font-sans">
+                <Lock size={12} className="text-amber-600" />
+                <MapPin size={12} className="text-amber-600" />
+                Terkunci: {kasirDesa}
+              </div>
+            )}
             {arrearsSearch && (
               <button
                 type="button"
@@ -1572,7 +1629,9 @@ export default function TransaksiView({
                 </div>
                 <div>
                   <p className="pb-10 print:pb-6">Loket Pembayaran,</p>
-                  <p className="font-bold text-slate-800 underline text-[11px]">E-Payment Kasir</p>
+                  <p className="font-bold text-slate-800 underline text-[11px]">
+                    {userRole === "kasir" ? `${kasirNama} (${kasirDesa})` : "Admin Utama"}
+                  </p>
                 </div>
               </div>
 
@@ -1730,7 +1789,9 @@ export default function TransaksiView({
                 </div>
                 <div>
                   <p className="pb-10 print:pb-6">Petugas Administrasi,</p>
-                  <p className="font-bold text-slate-800 underline text-[11px]">Unit Pelayanan TagihanPay</p>
+                  <p className="font-bold text-slate-800 underline text-[11px]">
+                    {userRole === "kasir" ? `${kasirNama} (${kasirDesa})` : "Unit Pelayanan TagihanPay"}
+                  </p>
                 </div>
               </div>
 

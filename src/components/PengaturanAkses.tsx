@@ -12,7 +12,8 @@ import {
   Info,
   Download,
   Upload,
-  Database
+  Database,
+  MapPin
 } from "lucide-react";
 import { Pelanggan, Transaksi, TanggalPembayaran, BiayaTarif } from "../types";
 
@@ -22,8 +23,10 @@ interface PengaturanAksesProps {
   adminPass: string;
   kasirUser: string;
   kasirPass: string;
+  kasirNama: string;
+  kasirDesa: string;
   onUpdateAdmin: (user: string, pass: string) => void;
-  onUpdateKasir: (user: string, pass: string) => void;
+  onUpdateKasir: (user: string, pass: string, nama: string, desa: string) => void;
   pelangganList: Pelanggan[];
   transaksiList: Transaksi[];
   tanggalList: TanggalPembayaran[];
@@ -44,6 +47,8 @@ export default function PengaturanAkses({
   adminPass,
   kasirUser,
   kasirPass,
+  kasirNama,
+  kasirDesa,
   onUpdateAdmin,
   onUpdateKasir,
   pelangganList,
@@ -59,6 +64,8 @@ export default function PengaturanAkses({
   const [newAdminPass, setNewAdminPass] = useState(adminPass);
   const [newKasirUser, setNewKasirUser] = useState(kasirUser);
   const [newKasirPass, setNewKasirPass] = useState(kasirPass);
+  const [newKasirNama, setNewKasirNama] = useState(kasirNama);
+  const [newKasirDesa, setNewKasirDesa] = useState(kasirDesa);
 
 
 
@@ -202,12 +209,22 @@ export default function PengaturanAkses({
       setNotif({ type: "error", message: "Sandi Kasir minimal 3 karakter!" });
       return;
     }
+    if (!newKasirNama.trim()) {
+      setNotif({ type: "error", message: "Nama Petugas Kasir tidak boleh kosong!" });
+      return;
+    }
+    if (!newKasirDesa.trim()) {
+      setNotif({ type: "error", message: "Wilayah Desa tidak boleh kosong!" });
+      return;
+    }
 
-    onUpdateKasir(newKasirUser.trim(), newKasirPass);
+    onUpdateKasir(newKasirUser.trim(), newKasirPass, newKasirNama.trim(), newKasirDesa.trim());
     localStorage.setItem("tagihanpay_kasir_user", newKasirUser.trim());
     localStorage.setItem("tagihanpay_kasir_pass", newKasirPass);
+    localStorage.setItem("tagihanpay_kasir_nama", newKasirNama.trim());
+    localStorage.setItem("tagihanpay_kasir_desa", newKasirDesa.trim());
 
-    setNotif({ type: "success", message: "Akses login Kasir Loket berhasil diperbarui!" });
+    setNotif({ type: "success", message: "Akses login Kasir Loket & Wilayah Desa berhasil diperbarui!" });
     setTimeout(() => {
       setNotif(null);
     }, 4000);
@@ -219,14 +236,18 @@ export default function PengaturanAkses({
       setNewAdminPass("admin");
       setNewKasirUser("kasir");
       setNewKasirPass("kasir");
+      setNewKasirNama("Asrudin");
+      setNewKasirDesa("Desa Makmur");
       
       onUpdateAdmin("admin", "admin");
       localStorage.setItem("tagihanpay_admin_user", "admin");
       localStorage.setItem("tagihanpay_admin_pass", "admin");
       
-      onUpdateKasir("kasir", "kasir");
+      onUpdateKasir("kasir", "kasir", "Asrudin", "Desa Makmur");
       localStorage.setItem("tagihanpay_kasir_user", "kasir");
       localStorage.setItem("tagihanpay_kasir_pass", "kasir");
+      localStorage.setItem("tagihanpay_kasir_nama", "Asrudin");
+      localStorage.setItem("tagihanpay_kasir_desa", "Desa Makmur");
 
       setNotif({ type: "success", message: "Kredensial login dikonfigurasi ulang ke bawaan pabrik!" });
       setTimeout(() => {
@@ -429,6 +450,42 @@ export default function PengaturanAkses({
                   >
                     {showKasirPass ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
+                </div>
+              </div>
+
+              {/* Nama Petugas Kasir Input */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono tracking-wider font-bold text-slate-500 uppercase block">Nama Lengkap Petugas Kasir</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                    <User size={14} />
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    value={newKasirNama}
+                    onChange={(e) => setNewKasirNama(e.target.value)}
+                    placeholder="Nama lengkap petugas kasir"
+                    className="w-full text-xs pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-amber-600 text-slate-800 font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Wilayah Tugas (Desa) Input */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono tracking-wider font-bold text-slate-500 uppercase block">Wilayah Desa Tugas</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                    <MapPin size={14} />
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    value={newKasirDesa}
+                    onChange={(e) => setNewKasirDesa(e.target.value)}
+                    placeholder="Contoh: Desa Makmur"
+                    className="w-full text-xs pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-amber-600 text-slate-800 font-medium"
+                  />
                 </div>
               </div>
             </div>

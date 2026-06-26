@@ -264,3 +264,36 @@ export interface Tunggakan {
   jatuhTempo: string; // e.g., "10 Juni 2026"
   jumlahTunggakan: number;
 }
+
+export interface Petugas {
+  id: string;
+  nama: string;
+  username: string;
+  password: string;
+  wilayahDesa: string;
+}
+
+export const INITIAL_PETUGAS: Petugas[] = [
+  {
+    id: "PTG-001",
+    nama: "Asrudin",
+    username: "kasir",
+    password: "kasir",
+    wilayahDesa: "Desa Makmur"
+  },
+  {
+    id: "PTG-002",
+    nama: "Siti Rahmawati",
+    username: "sitikasir",
+    password: "siti123",
+    wilayahDesa: "Bogor"
+  },
+  {
+    id: "PTG-003",
+    nama: "Ahmad Fauzi",
+    username: "ahmadkasir",
+    password: "ahmad123",
+    wilayahDesa: "Depok"
+  }
+];
+

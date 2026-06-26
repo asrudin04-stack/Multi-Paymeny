@@ -41,6 +41,7 @@ import {
   TanggalPembayaran, 
   BiayaTarif, 
   Transaksi, 
+  Petugas,
   INITIAL_PELANGGAN, 
   INITIAL_TANGGAL_PEMBAYARAN, 
   INITIAL_BIAYA_TARIF, 
@@ -51,6 +52,7 @@ import Dashboard from "./components/Dashboard";
 import MasterPelanggan from "./components/MasterPelanggan";
 import MasterTanggal from "./components/MasterTanggal";
 import MasterBiaya from "./components/MasterBiaya";
+import MasterPetugas from "./components/MasterPetugas";
 import TransaksiView from "./components/TransaksiView";
 import LaporanView from "./components/LaporanView";
 import PengaturanAkses from "./components/PengaturanAkses";
@@ -61,6 +63,7 @@ import {
   subscribeTanggal,
   subscribeBiaya,
   subscribeTransaksi,
+  subscribePetugas,
   savePelangganDoc,
   deletePelangganDoc,
   saveTanggalDoc,
@@ -69,6 +72,8 @@ import {
   deleteBiayaDoc,
   saveTransaksiDoc,
   deleteTransaksiDoc,
+  savePetugasDoc,
+  deletePetugasDoc,
   resetToDefaultDocs,
   clearAllDocs
 } from "./lib/firestoreService";
@@ -80,6 +85,7 @@ export default function App() {
   const [tanggalList, setTanggalList] = useState<TanggalPembayaran[]>([]);
   const [biayaList, setBiayaList] = useState<BiayaTarif[]>([]);
   const [transaksiList, setTransaksiList] = useState<Transaksi[]>([]);
+  const [petugasList, setPetugasList] = useState<Petugas[]>([]);
   const [isInitialLoadFinished, setIsInitialLoadFinished] = useState(false);
 
   // Navigation: active main view tab state
@@ -106,6 +112,12 @@ export default function App() {
   const [kasirPassCred, setKasirPassCred] = useState(() => {
     return localStorage.getItem("tagihanpay_kasir_pass") || "kasir";
   });
+  const [kasirNamaCred, setKasirNamaCred] = useState(() => {
+    return localStorage.getItem("tagihanpay_kasir_nama") || "Asrudin";
+  });
+  const [kasirDesaCred, setKasirDesaCred] = useState(() => {
+    return localStorage.getItem("tagihanpay_kasir_desa") || "Desa Makmur";
+  });
 
   const handleLoginSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -114,11 +126,29 @@ export default function App() {
     const trimmedUser = loginUsername.trim().toLowerCase();
     const trimmedPass = loginPassword;
 
+    // Check if matching admin
     if (trimmedUser === adminUserCred.toLowerCase() && trimmedPass === adminPassCred) {
       setUserRole("administrator");
       localStorage.setItem("tagihanpay_role", "administrator");
       setActiveTab("dashboard");
+      return;
+    }
+
+    // Check if matching any managed petugas in real-time list
+    const matchedPetugas = petugasList.find(
+      p => p.username.toLowerCase() === trimmedUser && p.password === trimmedPass
+    );
+
+    if (matchedPetugas) {
+      setUserRole("kasir");
+      localStorage.setItem("tagihanpay_role", "kasir");
+      setKasirNamaCred(matchedPetugas.nama);
+      setKasirDesaCred(matchedPetugas.wilayahDesa);
+      localStorage.setItem("tagihanpay_kasir_nama", matchedPetugas.nama);
+      localStorage.setItem("tagihanpay_kasir_desa", matchedPetugas.wilayahDesa);
+      setActiveTab("dashboard");
     } else if (trimmedUser === kasirUserCred.toLowerCase() && trimmedPass === kasirPassCred) {
+      // Fallback fallback credentials
       setUserRole("kasir");
       localStorage.setItem("tagihanpay_role", "kasir");
       setActiveTab("dashboard");
@@ -157,6 +187,7 @@ export default function App() {
     let unsubTanggal: () => void;
     let unsubBiaya: () => void;
     let unsubTransaksi: () => void;
+    let unsubPetugas: () => void;
 
     const initDb = async () => {
       try {
@@ -165,6 +196,7 @@ export default function App() {
         unsubTanggal = subscribeTanggal(setTanggalList);
         unsubBiaya = subscribeBiaya(setBiayaList);
         unsubTransaksi = subscribeTransaksi(setTransaksiList);
+        unsubPetugas = subscribePetugas(setPetugasList);
       } catch (err) {
         console.error("Failed to initialize Firestore database: ", err);
       } finally {
@@ -180,6 +212,7 @@ export default function App() {
       if (unsubTanggal) unsubTanggal();
       if (unsubBiaya) unsubBiaya();
       if (unsubTransaksi) unsubTransaksi();
+      if (unsubPetugas) unsubPetugas();
     };
   }, []);
 
@@ -310,6 +343,19 @@ export default function App() {
     for (const item of newItems) {
       await saveTransaksiDoc(item);
     }
+  };
+
+  // Petugas CRUD
+  const handleAddPetugas = async (p: Petugas) => {
+    await savePetugasDoc(p);
+  };
+
+  const handleUpdatePetugas = async (p: Petugas) => {
+    await savePetugasDoc(p);
+  };
+
+  const handleDeletePetugas = async (id: string) => {
+    await deletePetugasDoc(id);
   };
 
   // Trigger quick payment navigation helper
@@ -495,6 +541,18 @@ export default function App() {
                   <Calendar size={15} />
                   Tanggal Pembayaran
                 </button>
+
+                <button
+                  onClick={() => setActiveTab("petugas")}
+                  className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                    activeTab === "petugas"
+                      ? "bg-indigo-600 text-white shadow-xs font-bold"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <Shield size={15} />
+                  Master Petugas Kasir
+                </button>
               </div>
             )}
 
@@ -589,7 +647,7 @@ export default function App() {
               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
               Role: <span className="text-slate-200 font-bold uppercase">{userRole}</span>
             </p>
-            <p className="mt-0.5">Petugas: <span className="text-slate-350">{userRole === "administrator" ? "Admin Utama" : "Asrudin (Kasir)"}</span></p>
+            <p className="mt-0.5">Petugas: <span className="text-slate-350">{userRole === "administrator" ? "Admin Utama" : `${kasirNamaCred} (${kasirDesaCred})`}</span></p>
           </div>
           
           <button
@@ -819,6 +877,17 @@ export default function App() {
                 />
               )}
 
+              {/* RENDER VIEW: DATA MASTER PETUGAS */}
+              {activeTab === "petugas" && userRole === "administrator" && (
+                <MasterPetugas 
+                  petugasList={petugasList}
+                  pelangganList={pelangganList}
+                  onAddPetugas={handleAddPetugas}
+                  onUpdatePetugas={handleUpdatePetugas}
+                  onDeletePetugas={handleDeletePetugas}
+                />
+              )}
+
               {/* RENDER VIEW: TRANSAKSI */}
               {activeTab === "transaksi" && (
                 <TransaksiView 
@@ -829,6 +898,9 @@ export default function App() {
                   onAddTransaksi={handleAddTransaksi}
                   initialSelectedCustomerId={quickPaymentCustomerId}
                   clearInitialSelectedCustomerId={() => setQuickPaymentCustomerId(undefined)}
+                  userRole={userRole!}
+                  kasirNama={kasirNamaCred}
+                  kasirDesa={kasirDesaCred}
                 />
               )}
 
@@ -850,13 +922,17 @@ export default function App() {
                   adminPass={adminPassCred}
                   kasirUser={kasirUserCred}
                   kasirPass={kasirPassCred}
+                  kasirNama={kasirNamaCred}
+                  kasirDesa={kasirDesaCred}
                   onUpdateAdmin={(u, p) => {
                     setAdminUserCred(u);
                     setAdminPassCred(p);
                   }}
-                  onUpdateKasir={(u, p) => {
+                  onUpdateKasir={(u, p, nama, desa) => {
                     setKasirUserCred(u);
                     setKasirPassCred(p);
+                    setKasirNamaCred(nama);
+                    setKasirDesaCred(desa);
                   }}
                   pelangganList={pelangganList}
                   transaksiList={transaksiList}

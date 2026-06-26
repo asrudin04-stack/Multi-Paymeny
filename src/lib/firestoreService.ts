@@ -13,10 +13,12 @@ import {
   TanggalPembayaran, 
   BiayaTarif, 
   Transaksi,
+  Petugas,
   INITIAL_PELANGGAN,
   INITIAL_TANGGAL_PEMBAYARAN,
   INITIAL_BIAYA_TARIF,
-  INITIAL_TRANSAKSI
+  INITIAL_TRANSAKSI,
+  INITIAL_PETUGAS
 } from "../types";
 
 // Setup collections refs
@@ -24,6 +26,7 @@ const pelangganCol = collection(db, "pelanggan");
 const tanggalCol = collection(db, "tanggal_pembayaran");
 const biayaCol = collection(db, "biaya_tarif");
 const transaksiCol = collection(db, "transaksi");
+const petugasCol = collection(db, "petugas");
 
 // Seeding function to initialize Firestore if it has absolutely no data
 export const seedInitialDataIfEmpty = async () => {
@@ -58,8 +61,27 @@ export const seedInitialDataIfEmpty = async () => {
         batch.set(d, tx);
       });
 
+      // Seed petugas
+      INITIAL_PETUGAS.forEach((ptg) => {
+        const d = doc(db, "petugas", ptg.id);
+        batch.set(d, ptg);
+      });
+
       await batch.commit();
       console.log("Seeding completed successfully!");
+    } else {
+      // Check if petugas is empty separately (e.g. if database is already partially seeded from earlier app versions)
+      const petSnap = await getDocs(petugasCol);
+      if (petSnap.empty) {
+        console.log("Seeding petugas separately...");
+        const batch = writeBatch(db);
+        INITIAL_PETUGAS.forEach((ptg) => {
+          const d = doc(db, "petugas", ptg.id);
+          batch.set(d, ptg);
+        });
+        await batch.commit();
+        console.log("Petugas seeding completed!");
+      }
     }
   } catch (error) {
     console.error("Error seeding initial data: ", error);
@@ -118,6 +140,20 @@ export const subscribeTransaksi = (onUpdate: (data: Transaksi[]) => void) => {
   });
 };
 
+export const subscribePetugas = (onUpdate: (data: Petugas[]) => void) => {
+  return onSnapshot(petugasCol, (snapshot) => {
+    const list: Petugas[] = [];
+    snapshot.forEach((doc) => {
+      list.push(doc.data() as Petugas);
+    });
+    // Sort by name
+    list.sort((a, b) => a.nama.localeCompare(b.nama));
+    onUpdate(list);
+  }, (err) => {
+    console.error("Error fetching petugas snapshot: ", err);
+  });
+};
+
 // CRUD single item operations
 export const savePelangganDoc = async (p: Pelanggan) => {
   const d = doc(db, "pelanggan", p.id);
@@ -126,6 +162,16 @@ export const savePelangganDoc = async (p: Pelanggan) => {
 
 export const deletePelangganDoc = async (id: string) => {
   const d = doc(db, "pelanggan", id);
+  await deleteDoc(d);
+};
+
+export const savePetugasDoc = async (p: Petugas) => {
+  const d = doc(db, "petugas", p.id);
+  await setDoc(d, p);
+};
+
+export const deletePetugasDoc = async (id: string) => {
+  const d = doc(db, "petugas", id);
   await deleteDoc(d);
 };
 
@@ -176,6 +222,9 @@ export const resetToDefaultDocs = async () => {
   const txSnap = await getDocs(transaksiCol);
   txSnap.forEach((doc) => batch.delete(doc.ref));
 
+  const petSnap = await getDocs(petugasCol);
+  petSnap.forEach((doc) => batch.delete(doc.ref));
+
   // Write new ones
   INITIAL_PELANGGAN.forEach((p) => {
     const d = doc(db, "pelanggan", p.id);
@@ -197,6 +246,11 @@ export const resetToDefaultDocs = async () => {
     batch.set(d, tx);
   });
 
+  INITIAL_PETUGAS.forEach((ptg) => {
+    const d = doc(db, "petugas", ptg.id);
+    batch.set(d, ptg);
+  });
+
   await batch.commit();
 };
 
@@ -215,6 +269,9 @@ export const clearAllDocs = async () => {
 
   const txSnap = await getDocs(transaksiCol);
   txSnap.forEach((doc) => batch.delete(doc.ref));
+
+  const petSnap = await getDocs(petugasCol);
+  petSnap.forEach((doc) => batch.delete(doc.ref));
 
   await batch.commit();
 };
