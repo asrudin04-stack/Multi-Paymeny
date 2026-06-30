@@ -41,64 +41,10 @@ function removeUndefinedFields<T extends object>(obj: T): T {
   return result;
 }
 
-// Seeding function to initialize Firestore if it has absolutely no data
+// Seeding function is disabled so the database stays perfectly clean for real usage.
+// Users can still load sample data manually via the "Muat Ulang Data Sampel" option.
 export const seedInitialDataIfEmpty = async () => {
-  try {
-    const pSnap = await getDocs(pelangganCol);
-    if (pSnap.empty) {
-      console.log("Seeding initial data into Firestore...");
-      
-      const batch = writeBatch(db);
-      
-      // Seed pelanggan
-      INITIAL_PELANGGAN.forEach((p) => {
-        const d = doc(db, "pelanggan", p.id);
-        batch.set(d, removeUndefinedFields(p));
-      });
-
-      // Seed tanggal
-      INITIAL_TANGGAL_PEMBAYARAN.forEach((t) => {
-        const d = doc(db, "tanggal_pembayaran", t.id);
-        batch.set(d, removeUndefinedFields(t));
-      });
-
-      // Seed biaya
-      INITIAL_BIAYA_TARIF.forEach((b) => {
-        const d = doc(db, "biaya_tarif", b.id);
-        batch.set(d, removeUndefinedFields(b));
-      });
-
-      // Seed transaksi
-      INITIAL_TRANSAKSI.forEach((tx) => {
-        const d = doc(db, "transaksi", tx.id);
-        batch.set(d, removeUndefinedFields(tx));
-      });
-
-      // Seed petugas
-      INITIAL_PETUGAS.forEach((ptg) => {
-        const d = doc(db, "petugas", ptg.id);
-        batch.set(d, removeUndefinedFields(ptg));
-      });
-
-      await batch.commit();
-      console.log("Seeding completed successfully!");
-    } else {
-      // Check if petugas is empty separately (e.g. if database is already partially seeded from earlier app versions)
-      const petSnap = await getDocs(petugasCol);
-      if (petSnap.empty) {
-        console.log("Seeding petugas separately...");
-        const batch = writeBatch(db);
-        INITIAL_PETUGAS.forEach((ptg) => {
-          const d = doc(db, "petugas", ptg.id);
-          batch.set(d, removeUndefinedFields(ptg));
-        });
-        await batch.commit();
-        console.log("Petugas seeding completed!");
-      }
-    }
-  } catch (error) {
-    console.error("Error seeding initial data: ", error);
-  }
+  console.log("Automatic database seeding is disabled to support clean real database usage.");
 };
 
 // Real-time subscriptions
@@ -192,6 +138,20 @@ export const deletePelangganDoc = async (id: string) => {
   await deleteDoc(d);
 };
 
+export const deletePelangganDocs = async (ids: string[]) => {
+  if (ids.length === 0) return;
+  const chunkSize = 400;
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const chunk = ids.slice(i, i + chunkSize);
+    const batch = writeBatch(db);
+    chunk.forEach((id) => {
+      const d = doc(db, "pelanggan", id);
+      batch.delete(d);
+    });
+    await batch.commit();
+  }
+};
+
 export const savePetugasDoc = async (p: Petugas) => {
   const d = doc(db, "petugas", p.id);
   await setDoc(d, removeUndefinedFields(p));
@@ -276,71 +236,66 @@ export const deleteTransaksiDoc = async (id: string) => {
 
 // Reset database to default
 export const resetToDefaultDocs = async () => {
-  const batch = writeBatch(db);
+  // 1. Delete all existing docs safely in chunks
+  await clearAllDocs();
 
-  // Get current docs to delete
-  const pSnap = await getDocs(pelangganCol);
-  pSnap.forEach((doc) => batch.delete(doc.ref));
+  // 2. Write new ones safely in chunks
+  if (INITIAL_PELANGGAN.length > 0) {
+    await savePelangganDocs(INITIAL_PELANGGAN);
+  }
 
-  const tSnap = await getDocs(tanggalCol);
-  tSnap.forEach((doc) => batch.delete(doc.ref));
+  if (INITIAL_TANGGAL_PEMBAYARAN.length > 0) {
+    await saveTanggalDocs(INITIAL_TANGGAL_PEMBAYARAN);
+  }
 
-  const bSnap = await getDocs(biayaCol);
-  bSnap.forEach((doc) => batch.delete(doc.ref));
+  if (INITIAL_BIAYA_TARIF.length > 0) {
+    await saveBiayaDocs(INITIAL_BIAYA_TARIF);
+  }
 
-  const txSnap = await getDocs(transaksiCol);
-  txSnap.forEach((doc) => batch.delete(doc.ref));
+  if (INITIAL_TRANSAKSI.length > 0) {
+    await saveTransaksiDocs(INITIAL_TRANSAKSI);
+  }
 
-  const petSnap = await getDocs(petugasCol);
-  petSnap.forEach((doc) => batch.delete(doc.ref));
-
-  // Write new ones
-  INITIAL_PELANGGAN.forEach((p) => {
-    const d = doc(db, "pelanggan", p.id);
-    batch.set(d, removeUndefinedFields(p));
-  });
-
-  INITIAL_TANGGAL_PEMBAYARAN.forEach((t) => {
-    const d = doc(db, "tanggal_pembayaran", t.id);
-    batch.set(d, removeUndefinedFields(t));
-  });
-
-  INITIAL_BIAYA_TARIF.forEach((b) => {
-    const d = doc(db, "biaya_tarif", b.id);
-    batch.set(d, removeUndefinedFields(b));
-  });
-
-  INITIAL_TRANSAKSI.forEach((tx) => {
-    const d = doc(db, "transaksi", tx.id);
-    batch.set(d, removeUndefinedFields(tx));
-  });
-
-  INITIAL_PETUGAS.forEach((ptg) => {
-    const d = doc(db, "petugas", ptg.id);
-    batch.set(d, removeUndefinedFields(ptg));
-  });
-
-  await batch.commit();
+  if (INITIAL_PETUGAS.length > 0) {
+    const chunkSize = 500;
+    for (let i = 0; i < INITIAL_PETUGAS.length; i += chunkSize) {
+      const chunk = INITIAL_PETUGAS.slice(i, i + chunkSize);
+      const batch = writeBatch(db);
+      chunk.forEach((ptg) => {
+        const d = doc(db, "petugas", ptg.id);
+        batch.set(d, removeUndefinedFields(ptg));
+      });
+      await batch.commit();
+    }
+  }
 };
 
-// Clear all database content
+// Clear all database content safely in chunks
 export const clearAllDocs = async () => {
-  const batch = writeBatch(db);
+  const refsToDelete: any[] = [];
 
   const pSnap = await getDocs(pelangganCol);
-  pSnap.forEach((doc) => batch.delete(doc.ref));
+  pSnap.forEach((doc) => refsToDelete.push(doc.ref));
 
   const tSnap = await getDocs(tanggalCol);
-  tSnap.forEach((doc) => batch.delete(doc.ref));
+  tSnap.forEach((doc) => refsToDelete.push(doc.ref));
 
   const bSnap = await getDocs(biayaCol);
-  bSnap.forEach((doc) => batch.delete(doc.ref));
+  bSnap.forEach((doc) => refsToDelete.push(doc.ref));
 
   const txSnap = await getDocs(transaksiCol);
-  txSnap.forEach((doc) => batch.delete(doc.ref));
+  txSnap.forEach((doc) => refsToDelete.push(doc.ref));
 
   const petSnap = await getDocs(petugasCol);
-  petSnap.forEach((doc) => batch.delete(doc.ref));
+  petSnap.forEach((doc) => refsToDelete.push(doc.ref));
 
-  await batch.commit();
+  const chunkSize = 400;
+  for (let i = 0; i < refsToDelete.length; i += chunkSize) {
+    const chunk = refsToDelete.slice(i, i + chunkSize);
+    const batch = writeBatch(db);
+    chunk.forEach((ref) => {
+      batch.delete(ref);
+    });
+    await batch.commit();
+  }
 };

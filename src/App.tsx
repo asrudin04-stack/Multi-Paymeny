@@ -67,6 +67,7 @@ import {
   savePelangganDoc,
   savePelangganDocs,
   deletePelangganDoc,
+  deletePelangganDocs,
   saveTanggalDoc,
   saveTanggalDocs,
   deleteTanggalDoc,
@@ -299,9 +300,7 @@ export default function App() {
 
   const handleDeletePelanggan = async (id: string | string[]) => {
     const idsToDelete = Array.isArray(id) ? id : [id];
-    for (const dId of idsToDelete) {
-      await deletePelangganDoc(dId);
-    }
+    await deletePelangganDocs(idsToDelete);
   };
 
   // Tanggal CRUD
