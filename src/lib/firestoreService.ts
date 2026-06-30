@@ -207,6 +207,20 @@ export const saveTanggalDoc = async (t: TanggalPembayaran) => {
   await setDoc(d, removeUndefinedFields(t));
 };
 
+export const saveTanggalDocs = async (tanggalList: TanggalPembayaran[]) => {
+  if (tanggalList.length === 0) return;
+  const chunkSize = 500;
+  for (let i = 0; i < tanggalList.length; i += chunkSize) {
+    const chunk = tanggalList.slice(i, i + chunkSize);
+    const batch = writeBatch(db);
+    chunk.forEach((t) => {
+      const d = doc(db, "tanggal_pembayaran", t.id);
+      batch.set(d, removeUndefinedFields(t));
+    });
+    await batch.commit();
+  }
+};
+
 export const deleteTanggalDoc = async (id: string) => {
   const d = doc(db, "tanggal_pembayaran", id);
   await deleteDoc(d);
@@ -215,6 +229,20 @@ export const deleteTanggalDoc = async (id: string) => {
 export const saveBiayaDoc = async (b: BiayaTarif) => {
   const d = doc(db, "biaya_tarif", b.id);
   await setDoc(d, removeUndefinedFields(b));
+};
+
+export const saveBiayaDocs = async (biayaList: BiayaTarif[]) => {
+  if (biayaList.length === 0) return;
+  const chunkSize = 500;
+  for (let i = 0; i < biayaList.length; i += chunkSize) {
+    const chunk = biayaList.slice(i, i + chunkSize);
+    const batch = writeBatch(db);
+    chunk.forEach((b) => {
+      const d = doc(db, "biaya_tarif", b.id);
+      batch.set(d, removeUndefinedFields(b));
+    });
+    await batch.commit();
+  }
 };
 
 export const deleteBiayaDoc = async (id: string) => {

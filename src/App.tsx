@@ -68,8 +68,10 @@ import {
   savePelangganDocs,
   deletePelangganDoc,
   saveTanggalDoc,
+  saveTanggalDocs,
   deleteTanggalDoc,
   saveBiayaDoc,
+  saveBiayaDocs,
   deleteBiayaDoc,
   saveTransaksiDoc,
   saveTransaksiDocs,
@@ -251,15 +253,11 @@ export default function App() {
 
   // Google Sheets import mergers
   const handleImportPelanggan = async (imported: Pelanggan[]) => {
-    for (const newItem of imported) {
-      await savePelangganDoc(newItem);
-    }
+    await savePelangganDocs(imported);
   };
 
   const handleImportTransaksi = async (imported: Transaksi[]) => {
-    for (const newItem of imported) {
-      await saveTransaksiDoc(newItem);
-    }
+    await saveTransaksiDocs(imported);
   };
 
   const handleRestoreAllData = async (backup: {
@@ -270,25 +268,17 @@ export default function App() {
   }) => {
     setLoadingFirestore(true);
     try {
-      if (backup.pelanggan) {
-        for (const item of backup.pelanggan) {
-          await savePelangganDoc(item);
-        }
+      if (backup.pelanggan && backup.pelanggan.length > 0) {
+        await savePelangganDocs(backup.pelanggan);
       }
-      if (backup.tanggal) {
-        for (const item of backup.tanggal) {
-          await saveTanggalDoc(item);
-        }
+      if (backup.tanggal && backup.tanggal.length > 0) {
+        await saveTanggalDocs(backup.tanggal);
       }
-      if (backup.biaya) {
-        for (const item of backup.biaya) {
-          await saveBiayaDoc(item);
-        }
+      if (backup.biaya && backup.biaya.length > 0) {
+        await saveBiayaDocs(backup.biaya);
       }
-      if (backup.transaksi) {
-        for (const item of backup.transaksi) {
-          await saveTransaksiDoc(item);
-        }
+      if (backup.transaksi && backup.transaksi.length > 0) {
+        await saveTransaksiDocs(backup.transaksi);
       }
     } catch (err) {
       console.error("Failed to restore backup data to Firestore: ", err);
