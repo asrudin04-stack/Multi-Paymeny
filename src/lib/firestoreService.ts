@@ -173,6 +173,20 @@ export const savePelangganDoc = async (p: Pelanggan) => {
   await setDoc(d, removeUndefinedFields(p));
 };
 
+export const savePelangganDocs = async (pelangganList: Pelanggan[]) => {
+  if (pelangganList.length === 0) return;
+  const chunkSize = 500;
+  for (let i = 0; i < pelangganList.length; i += chunkSize) {
+    const chunk = pelangganList.slice(i, i + chunkSize);
+    const batch = writeBatch(db);
+    chunk.forEach((p) => {
+      const d = doc(db, "pelanggan", p.id);
+      batch.set(d, removeUndefinedFields(p));
+    });
+    await batch.commit();
+  }
+};
+
 export const deletePelangganDoc = async (id: string) => {
   const d = doc(db, "pelanggan", id);
   await deleteDoc(d);
@@ -211,6 +225,20 @@ export const deleteBiayaDoc = async (id: string) => {
 export const saveTransaksiDoc = async (tx: Transaksi) => {
   const d = doc(db, "transaksi", tx.id);
   await setDoc(d, removeUndefinedFields(tx));
+};
+
+export const saveTransaksiDocs = async (transaksiList: Transaksi[]) => {
+  if (transaksiList.length === 0) return;
+  const chunkSize = 500;
+  for (let i = 0; i < transaksiList.length; i += chunkSize) {
+    const chunk = transaksiList.slice(i, i + chunkSize);
+    const batch = writeBatch(db);
+    chunk.forEach((tx) => {
+      const d = doc(db, "transaksi", tx.id);
+      batch.set(d, removeUndefinedFields(tx));
+    });
+    await batch.commit();
+  }
 };
 
 export const deleteTransaksiDoc = async (id: string) => {

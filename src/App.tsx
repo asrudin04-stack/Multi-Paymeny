@@ -65,12 +65,14 @@ import {
   subscribeTransaksi,
   subscribePetugas,
   savePelangganDoc,
+  savePelangganDocs,
   deletePelangganDoc,
   saveTanggalDoc,
   deleteTanggalDoc,
   saveBiayaDoc,
   deleteBiayaDoc,
   saveTransaksiDoc,
+  saveTransaksiDocs,
   deleteTransaksiDoc,
   savePetugasDoc,
   deletePetugasDoc,
@@ -298,9 +300,7 @@ export default function App() {
   // Pelanggan CRUD
   const handleAddPelanggan = async (p: Pelanggan | Pelanggan[]) => {
     const newItems = Array.isArray(p) ? p : [p];
-    for (const item of newItems) {
-      await savePelangganDoc(item);
-    }
+    await savePelangganDocs(newItems);
   };
 
   const handleUpdatePelanggan = async (p: Pelanggan) => {
@@ -343,9 +343,7 @@ export default function App() {
   // Transaksi Insert
   const handleAddTransaksi = async (tx: Transaksi | Transaksi[]) => {
     const newItems = Array.isArray(tx) ? tx : [tx];
-    for (const item of newItems) {
-      await saveTransaksiDoc(item);
-    }
+    await saveTransaksiDocs(newItems);
   };
 
   // Petugas CRUD

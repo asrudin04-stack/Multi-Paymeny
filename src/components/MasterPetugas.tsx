@@ -203,9 +203,9 @@ export default function MasterPetugas({
         await onAddPetugas(data);
       }
       setIsFormOpen(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to save petugas:", err);
-      setErrors({ global: "Gagal menyimpan data ke database cloud." });
+      setErrors({ global: `Gagal menyimpan data ke database cloud: ${err.message || err}.` });
     }
   };
 

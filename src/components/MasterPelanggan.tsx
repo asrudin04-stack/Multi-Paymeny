@@ -471,7 +471,7 @@ export default function MasterPelanggan({
     }
   };
 
-  const processImportExecute = () => {
+  const processImportExecute = async () => {
     if (parsedData.length === 0) return;
     
     // Pre-calculate the starting serial number based on max existing numeric ID suffix
@@ -509,18 +509,31 @@ export default function MasterPelanggan({
       });
     });
 
-    onAddPelanggan(newlyCreatedPelanggan);
-
     setImportStatus({
-      type: "success",
-      message: `Berhasil mengimport ${parsedData.length} data pelanggan baru!`
+      type: "idle",
+      message: "Sedang mengunggah data ke database awan..."
     });
-    setParsedData([]);
-    
-    setTimeout(() => {
-      setIsImportOpen(false);
-      setImportStatus({ type: "idle", message: "" });
-    }, 1800);
+
+    try {
+      await onAddPelanggan(newlyCreatedPelanggan);
+
+      setImportStatus({
+        type: "success",
+        message: `Berhasil mengimport ${parsedData.length} data pelanggan baru!`
+      });
+      setParsedData([]);
+      
+      setTimeout(() => {
+        setIsImportOpen(false);
+        setImportStatus({ type: "idle", message: "" });
+      }, 1800);
+    } catch (err: any) {
+      console.error("Gagal mengimport data pelanggan:", err);
+      setImportStatus({
+        type: "error",
+        message: `Gagal menyimpan data ke database cloud: ${err.message || err}. Silakan periksa koneksi Anda.`
+      });
+    }
   };
 
   const handleExportPelanggan = () => {
@@ -701,7 +714,7 @@ export default function MasterPelanggan({
       setIsFormOpen(false);
     } catch (err: any) {
       console.error("Gagal menyimpan data pelanggan:", err);
-      setErrors({ global: "Gagal menyimpan data ke database cloud. Silakan periksa koneksi Anda." });
+      setErrors({ global: `Gagal menyimpan data ke database cloud: ${err.message || err}. Silakan periksa koneksi Anda.` });
     } finally {
       setIsSaving(false);
     }
