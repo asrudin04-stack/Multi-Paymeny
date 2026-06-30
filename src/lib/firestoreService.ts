@@ -28,6 +28,19 @@ const biayaCol = collection(db, "biaya_tarif");
 const transaksiCol = collection(db, "transaksi");
 const petugasCol = collection(db, "petugas");
 
+// Helper to recursively remove undefined fields so Firestore doesn't throw errors
+function removeUndefinedFields<T extends object>(obj: T): T {
+  const result = { ...obj } as any;
+  Object.keys(result).forEach((key) => {
+    if (result[key] === undefined) {
+      delete result[key];
+    } else if (result[key] !== null && typeof result[key] === "object" && !Array.isArray(result[key])) {
+      result[key] = removeUndefinedFields(result[key]);
+    }
+  });
+  return result;
+}
+
 // Seeding function to initialize Firestore if it has absolutely no data
 export const seedInitialDataIfEmpty = async () => {
   try {
@@ -40,31 +53,31 @@ export const seedInitialDataIfEmpty = async () => {
       // Seed pelanggan
       INITIAL_PELANGGAN.forEach((p) => {
         const d = doc(db, "pelanggan", p.id);
-        batch.set(d, p);
+        batch.set(d, removeUndefinedFields(p));
       });
 
       // Seed tanggal
       INITIAL_TANGGAL_PEMBAYARAN.forEach((t) => {
         const d = doc(db, "tanggal_pembayaran", t.id);
-        batch.set(d, t);
+        batch.set(d, removeUndefinedFields(t));
       });
 
       // Seed biaya
       INITIAL_BIAYA_TARIF.forEach((b) => {
         const d = doc(db, "biaya_tarif", b.id);
-        batch.set(d, b);
+        batch.set(d, removeUndefinedFields(b));
       });
 
       // Seed transaksi
       INITIAL_TRANSAKSI.forEach((tx) => {
         const d = doc(db, "transaksi", tx.id);
-        batch.set(d, tx);
+        batch.set(d, removeUndefinedFields(tx));
       });
 
       // Seed petugas
       INITIAL_PETUGAS.forEach((ptg) => {
         const d = doc(db, "petugas", ptg.id);
-        batch.set(d, ptg);
+        batch.set(d, removeUndefinedFields(ptg));
       });
 
       await batch.commit();
@@ -77,7 +90,7 @@ export const seedInitialDataIfEmpty = async () => {
         const batch = writeBatch(db);
         INITIAL_PETUGAS.forEach((ptg) => {
           const d = doc(db, "petugas", ptg.id);
-          batch.set(d, ptg);
+          batch.set(d, removeUndefinedFields(ptg));
         });
         await batch.commit();
         console.log("Petugas seeding completed!");
@@ -154,19 +167,6 @@ export const subscribePetugas = (onUpdate: (data: Petugas[]) => void) => {
   });
 };
 
-// Helper to recursively remove undefined fields so Firestore doesn't throw errors
-function removeUndefinedFields<T extends object>(obj: T): T {
-  const result = { ...obj } as any;
-  Object.keys(result).forEach((key) => {
-    if (result[key] === undefined) {
-      delete result[key];
-    } else if (result[key] !== null && typeof result[key] === "object" && !Array.isArray(result[key])) {
-      result[key] = removeUndefinedFields(result[key]);
-    }
-  });
-  return result;
-}
-
 // CRUD single item operations
 export const savePelangganDoc = async (p: Pelanggan) => {
   const d = doc(db, "pelanggan", p.id);
@@ -241,27 +241,27 @@ export const resetToDefaultDocs = async () => {
   // Write new ones
   INITIAL_PELANGGAN.forEach((p) => {
     const d = doc(db, "pelanggan", p.id);
-    batch.set(d, p);
+    batch.set(d, removeUndefinedFields(p));
   });
 
   INITIAL_TANGGAL_PEMBAYARAN.forEach((t) => {
     const d = doc(db, "tanggal_pembayaran", t.id);
-    batch.set(d, t);
+    batch.set(d, removeUndefinedFields(t));
   });
 
   INITIAL_BIAYA_TARIF.forEach((b) => {
     const d = doc(db, "biaya_tarif", b.id);
-    batch.set(d, b);
+    batch.set(d, removeUndefinedFields(b));
   });
 
   INITIAL_TRANSAKSI.forEach((tx) => {
     const d = doc(db, "transaksi", tx.id);
-    batch.set(d, tx);
+    batch.set(d, removeUndefinedFields(tx));
   });
 
   INITIAL_PETUGAS.forEach((ptg) => {
     const d = doc(db, "petugas", ptg.id);
-    batch.set(d, ptg);
+    batch.set(d, removeUndefinedFields(ptg));
   });
 
   await batch.commit();

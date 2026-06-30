@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { 
   PlusCircle, 
   History, 
@@ -143,12 +143,26 @@ export default function TransaksiView({
 
 
   // --- TRANS FORM STATE ---
-  const [selectedCustomerId, setSelectedCustomerId] = useState("");
-  const [periodeBulan, setPeriodeBulan] = useState("06"); // Juni
-  const [periodeTahun, setPeriodeTahun] = useState("2026");
-  const [jumlahBayar, setJumlahBayar] = useState<number>(0);
-  const [metodePembayaran, setMetodePembayaran] = useState<'Tunai' | 'Transfer'>("Tunai");
-  const [keterangan, setKeterangan] = useState("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>(() => {
+    return localStorage.getItem("tagihanpay_draft_customerId") || "";
+  });
+  const [periodeBulan, setPeriodeBulan] = useState<string>(() => {
+    return localStorage.getItem("tagihanpay_draft_periodeBulan") || "06";
+  });
+  const [periodeTahun, setPeriodeTahun] = useState<string>(() => {
+    return localStorage.getItem("tagihanpay_draft_periodeTahun") || "2026";
+  });
+  const [jumlahBayar, setJumlahBayar] = useState<number>(() => {
+    const saved = localStorage.getItem("tagihanpay_draft_jumlahBayar");
+    return saved ? Number(saved) : 0;
+  });
+  const [metodePembayaran, setMetodePembayaran] = useState<'Tunai' | 'Transfer'>(() => {
+    const saved = localStorage.getItem("tagihanpay_draft_metodePembayaran");
+    return (saved === "Transfer" ? "Transfer" : "Tunai");
+  });
+  const [keterangan, setKeterangan] = useState<string>(() => {
+    return localStorage.getItem("tagihanpay_draft_keterangan") || "";
+  });
   const [sendWaNotif, setSendWaNotif] = useState<boolean>(() => {
     return localStorage.getItem("tagihanpay_send_wa_auto") !== "false";
   });
@@ -157,6 +171,16 @@ export default function TransaksiView({
   useEffect(() => {
     localStorage.setItem("tagihanpay_send_wa_auto", sendWaNotif ? "true" : "false");
   }, [sendWaNotif]);
+
+  // Auto-save transaction input progress to local storage
+  useEffect(() => {
+    localStorage.setItem("tagihanpay_draft_customerId", selectedCustomerId);
+    localStorage.setItem("tagihanpay_draft_periodeBulan", periodeBulan);
+    localStorage.setItem("tagihanpay_draft_periodeTahun", periodeTahun);
+    localStorage.setItem("tagihanpay_draft_jumlahBayar", String(jumlahBayar));
+    localStorage.setItem("tagihanpay_draft_metodePembayaran", metodePembayaran);
+    localStorage.setItem("tagihanpay_draft_keterangan", keterangan);
+  }, [selectedCustomerId, periodeBulan, periodeTahun, jumlahBayar, metodePembayaran, keterangan]);
 
   // --- ARREARS ALERTS PERIODS ---
   const activePeriods = ["2026-06"]; // Months simulated for unpaid check
@@ -456,8 +480,20 @@ export default function TransaksiView({
     return pelangganList.find((p) => p.id === selectedCustomerId);
   }, [selectedCustomerId, pelangganList]);
 
+  const isInitialMount = useRef(true);
+
   // Autofill standard/custom cost of chosen client
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      const savedCustomerId = localStorage.getItem("tagihanpay_draft_customerId");
+      const savedJumlahBayar = localStorage.getItem("tagihanpay_draft_jumlahBayar");
+      if (savedCustomerId && savedJumlahBayar !== null) {
+        // Skip autofilling if we loaded from a saved local storage draft
+        return;
+      }
+    }
+
     if (selectedCustomerInfo) {
       if (selectedCustomerInfo.nominalTarif !== undefined && selectedCustomerInfo.nominalTarif !== null && selectedCustomerInfo.nominalTarif >= 0) {
         setJumlahBayar(selectedCustomerInfo.nominalTarif);
@@ -522,6 +558,14 @@ export default function TransaksiView({
     // Clear inputs
     setSelectedCustomerId("");
     setKeterangan("");
+
+    // Clear draft items from localStorage
+    localStorage.removeItem("tagihanpay_draft_customerId");
+    localStorage.removeItem("tagihanpay_draft_periodeBulan");
+    localStorage.removeItem("tagihanpay_draft_periodeTahun");
+    localStorage.removeItem("tagihanpay_draft_jumlahBayar");
+    localStorage.removeItem("tagihanpay_draft_metodePembayaran");
+    localStorage.removeItem("tagihanpay_draft_keterangan");
     
     // Show beautiful automatic printed receipt popup
     setShowAutoReceipt(newTx);
