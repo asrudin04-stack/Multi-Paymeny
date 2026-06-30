@@ -154,10 +154,23 @@ export const subscribePetugas = (onUpdate: (data: Petugas[]) => void) => {
   });
 };
 
+// Helper to recursively remove undefined fields so Firestore doesn't throw errors
+function removeUndefinedFields<T extends object>(obj: T): T {
+  const result = { ...obj } as any;
+  Object.keys(result).forEach((key) => {
+    if (result[key] === undefined) {
+      delete result[key];
+    } else if (result[key] !== null && typeof result[key] === "object" && !Array.isArray(result[key])) {
+      result[key] = removeUndefinedFields(result[key]);
+    }
+  });
+  return result;
+}
+
 // CRUD single item operations
 export const savePelangganDoc = async (p: Pelanggan) => {
   const d = doc(db, "pelanggan", p.id);
-  await setDoc(d, p);
+  await setDoc(d, removeUndefinedFields(p));
 };
 
 export const deletePelangganDoc = async (id: string) => {
@@ -167,7 +180,7 @@ export const deletePelangganDoc = async (id: string) => {
 
 export const savePetugasDoc = async (p: Petugas) => {
   const d = doc(db, "petugas", p.id);
-  await setDoc(d, p);
+  await setDoc(d, removeUndefinedFields(p));
 };
 
 export const deletePetugasDoc = async (id: string) => {
@@ -177,7 +190,7 @@ export const deletePetugasDoc = async (id: string) => {
 
 export const saveTanggalDoc = async (t: TanggalPembayaran) => {
   const d = doc(db, "tanggal_pembayaran", t.id);
-  await setDoc(d, t);
+  await setDoc(d, removeUndefinedFields(t));
 };
 
 export const deleteTanggalDoc = async (id: string) => {
@@ -187,7 +200,7 @@ export const deleteTanggalDoc = async (id: string) => {
 
 export const saveBiayaDoc = async (b: BiayaTarif) => {
   const d = doc(db, "biaya_tarif", b.id);
-  await setDoc(d, b);
+  await setDoc(d, removeUndefinedFields(b));
 };
 
 export const deleteBiayaDoc = async (id: string) => {
@@ -197,7 +210,7 @@ export const deleteBiayaDoc = async (id: string) => {
 
 export const saveTransaksiDoc = async (tx: Transaksi) => {
   const d = doc(db, "transaksi", tx.id);
-  await setDoc(d, tx);
+  await setDoc(d, removeUndefinedFields(tx));
 };
 
 export const deleteTransaksiDoc = async (id: string) => {

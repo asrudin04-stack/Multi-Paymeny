@@ -504,7 +504,8 @@ export default function MasterPelanggan({
         noMeter: row.noMeter,
         idTarif: row.idTarif || undefined,
         idTanggal: row.idTanggal || undefined,
-        nominalTarif: row.nominalTarif
+        nominalTarif: row.nominalTarif,
+        wilayahDesa: row.wilayahDesa
       });
     });
 
